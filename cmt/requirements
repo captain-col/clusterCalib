@@ -7,10 +7,11 @@ author Clark McGrew <clark.mcgrew@stonybrook.edu>
 
 # The packages used by this one.  Only direct dependencies should be
 # included. 
+use elecSim
+use eventDisplay
 use captEvent
 use testBase
 use captainPolicy 
-use eventDisplay
 use ROOT * LCG_Interfaces
 
 # Build the documentation.
