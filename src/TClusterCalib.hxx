@@ -4,13 +4,13 @@
 #include <TEvent.hxx>
 #include <TMCChannelId.hxx>
 
-namespace CP {
-    class TElectronicsResponse;
-    class TWireResponse;
-    class TClusterCalib;
-};
+#include <memory>
 
-class TVirtualFFT;
+namespace CP {
+    class TClusterCalib;
+    class TPulseCalib;
+    class TPulseDeconvolution;
+};
 
 /// This is a very simplistic electronics simulation.  It is not intended for
 /// doing physic, but does capture enough of the behavior to develop software.
@@ -41,21 +41,10 @@ private:
     /// equivalence is guarranteed in the constructor.
     int fSampleCount;
 
-    /// The fft class to take the fourier transform.
-    TVirtualFFT *fFFT;
+    /// A class to calibrate the digital pulses into calibrated charge pulses. 
+    CP::TPulseCalib* fCalibrate;
 
-    /// The fft class to take the inverse fourier transform.
-    TVirtualFFT *fInverseFFT;
-
-    /// The electronics response.  For now, there is only one object, but if
-    /// the difference classes of electronics end up with different responses,
-    /// then it may pay to have more than one.
-    TElectronicsResponse* fElectronicsResponse;
-
-    /// The wire response.  For now, there is only one object, but if
-    /// the difference types of wires end up with different responses,
-    /// then it may pay to have more than one.
-    TWireResponse* fWireResponse;
-
+    /// A class to deconvolute the electronics shape 
+    CP::TPulseDeconvolution* fDeconvolution;
 };
 #endif
