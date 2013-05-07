@@ -1,0 +1,38 @@
+#ifndef TWireMakeHits_hxx_seen
+#define TWireMakeHits_hxx_seen
+
+#include <THitSelection.hxx>
+#include <TCalibPulseDigit.hxx>
+
+namespace CP {
+    class TWireMakeHits;
+};
+
+/// This takes a TCalibPulseDigit and turns it into one or more TDataHit
+/// object.  The hit will contain the time, and charge of the hit.
+class CP::TWireMakeHits {
+public:
+    TWireMakeHits();
+    ~TWireMakeHits();
+    
+    /// Take a TCalibPulseDigit reference and find any hits in the pulse.  Any
+    /// hits that are found are appended to output THitSelection.  This takes
+    /// a hit selection of PMT hits that will be used as a hint for the
+    /// expected dispersion of the wire signals.
+    void operator () (CP::THitSelection& hits, 
+                      const CP::TCalibPulseDigit& digits);
+
+private:
+
+    // A buffer for the spectrum.
+    float* fSource;
+
+    // The size of the buffer for the spectrum
+    int fNSource;
+
+    // A buffer for the found peaks;
+    float* fDest;
+
+};
+
+#endif

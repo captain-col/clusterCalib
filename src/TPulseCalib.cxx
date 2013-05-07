@@ -13,11 +13,12 @@ CP::TPulseCalib::TPulseCalib() {}
     
 CP::TPulseCalib::~TPulseCalib() {}
 
-CP::TCalibPulseDigit* CP::TPulseCalib::operator()(const CP::TDigit* digit) {
-    const CP::TPulseDigit* pulse = dynamic_cast<const CP::TPulseDigit*>(digit);
+CP::TCalibPulseDigit* 
+CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
+    const CP::TPulseDigit* pulse = digit.As<const CP::TPulseDigit>();
     if (!pulse) return NULL;
 
-    TChannelId chan(digit->GetChannelId());
+    TChannelId chan(pulse->GetChannelId());
 
     double digitStep;
     double pedestal;
@@ -63,5 +64,5 @@ CP::TCalibPulseDigit* CP::TPulseCalib::operator()(const CP::TDigit* digit) {
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
         samples[i] = 1.0*(pulse->GetSample(i)-pedestal)/gain;
     }
-    return new CP::TCalibPulseDigit(pulse,startTime,stopTime,samples);
+    return new CP::TCalibPulseDigit(digit,startTime,stopTime,samples);
 }

@@ -22,7 +22,7 @@ public:
     virtual ~TPulseCalib();
 
     /// Do the actual calibration.
-    CP::TCalibPulseDigit* operator()(const CP::TDigit* digit);
+    CP::TCalibPulseDigit* operator()(const CP::TDigitProxy& digit);
 
 };
 #endif

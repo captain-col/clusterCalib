@@ -9,6 +9,7 @@ author Clark McGrew <clark.mcgrew@stonybrook.edu>
 # included. 
 use elecSim
 use eventDisplay
+use captChanInfo
 use captEvent
 use testBase
 use captainPolicy 
@@ -19,8 +20,9 @@ document doxygen doxygen -group=documentation *.cxx *.hxx ../doc/*.dox
 
 # Build information used by packages that use this one.
 macro clusterCalib_cppflags " -DCLUSTERCALIB_USED "
-macro clusterCalib_linkopts " -L$(CLUSTERCALIBROOT)/$(clusterCalib_tag)"
+macro clusterCalib_linkopts " -L$(CLUSTERCALIBROOT)/$(clusterCalib_tag) "
 macro_append clusterCalib_linkopts " -lclusterCalib "
+macro_append clusterCalib_linkopts " -lSpectrum "
 macro clusterCalib_stamps " $(clusterCalibstamp) $(linkdefstamp) "
 
 # The paths to find this library and it's executables
