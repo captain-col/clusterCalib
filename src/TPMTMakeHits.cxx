@@ -18,6 +18,9 @@ void CP::TPMTMakeHits::operator() (CP::THitSelection& hits,
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
 
+    double digitStep = digit.GetLastSample()-digit.GetFirstSample();
+    digitStep /= digit.GetSampleCount();
+
     // This should do a peak search, but the PMT peaks are really (really,
     // really) sharp, and extremely narrow.  This is probably good enough for
     // now.
@@ -29,9 +32,9 @@ void CP::TPMTMakeHits::operator() (CP::THitSelection& hits,
         hit.SetDigit(digit.GetParent());
         hit.SetCharge(s);
         hit.SetChargeUncertainty(std::sqrt(s));
-        hit.SetTime(250.0*i*unit::ns);
-        hit.SetTimeUncertainty(250*unit::ns/std::sqrt(12.0));
-        hit.SetTimeRMS(250*unit::ns/std::sqrt(12.0));
+        hit.SetTime(digitStep*i);
+        hit.SetTimeUncertainty(digitStep/std::sqrt(12.0));
+        hit.SetTimeRMS(digitStep/std::sqrt(12.0));
         hits.push_back(CP::THandle<CP::TDataHit>(new CP::TDataHit(hit)));
     }
 

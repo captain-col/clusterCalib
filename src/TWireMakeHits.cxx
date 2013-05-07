@@ -45,13 +45,19 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
 
     TSpectrum* spectrum = new TSpectrum;
+
+    // Find the time per sample in the digit.
+    double digitStep = digit.GetLastSample()-digit.GetFirstSample();
+    digitStep /= digit.GetSampleCount();
+
+    // Set the parameters to use for the peak search.  These should be in the
+    // parameters file.
     double sigma = 4.0;
     double threshold = 15;
     bool removeBkg = false;
     int iterations = 3;
     bool useMarkov = false;
     int window = 3;
-    
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
                                        sigma, threshold,
                                        removeBkg, iterations, 
@@ -62,7 +68,18 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     std::vector<float> peaks;
     for (int i=0; i<found; ++i)  peaks.push_back(xx[i]);
 
+    // This ugly bit of code is calculating the amount of charge in each peak
+    // and the charge uncertainty; calculating the peak time RMS and time
+    // uncertainty; and using that to create a hit.  The heuristic is that a
+    // peak contains all charge for bins that are more than "chargeThresh"
+    // times the peak value.  If there is more than one peak found, then the
+    // chanrge is split at the halfway point between the peaks. 
+    //
+    // THIS IS A QUICK AND DIRTY HACK TO GET SOMETHING "OUT THE DOOR". 
+    //
     // UGLY CODE ALERT.  This does not make me proud.
+    //
+    double chargeThresh = 0.1;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
         // No peaks at the end of a digit.
@@ -95,20 +112,20 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         double tt = 0.0;
         for (int j = b; j < e; ++j) {
             double v = digit.GetSample(j);
-            if (v < 0.1*peak) continue;
+            if (v < chargeThresh*peak) continue;
             q += v;
             t += v*j;
             tt += v*j*j;
         }
         double qUnc = std::sqrt(q);
-        center *= 250.0*unit::ns;
+        center *= digitStep;
 
         t /= q;
         tt /= q;
 
         double rms = (tt - t*t);
-        rms = 250.0*unit::ns*std::sqrt(rms + 1);
-        double tUnc = rms + std::abs(center - 250.0*unit::ns*t);
+        rms = digitStep*std::sqrt(rms + 1);
+        double tUnc = rms + std::abs(center - digitStep*t);
         tUnc /= qUnc;
         center += digit.GetFirstSample();
 
