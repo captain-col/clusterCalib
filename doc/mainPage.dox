@@ -1,0 +1,8 @@
+/*! \mainpage Calibrate pulses to find hits.
+
+\section clusterCalib The Cluster Calibration
+
+This takes digitized pulses and translates them into time and charge hits
+for each wire.
+
+*/
