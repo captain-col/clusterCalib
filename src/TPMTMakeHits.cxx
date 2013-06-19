@@ -32,7 +32,7 @@ void CP::TPMTMakeHits::operator() (CP::THitSelection& hits,
         hit.SetDigit(digit.GetParent());
         hit.SetCharge(s);
         hit.SetChargeUncertainty(std::sqrt(s));
-        hit.SetTime(digitStep*i);
+        hit.SetTime(digitStep*i + digit.GetFirstSample());
         hit.SetTimeUncertainty(digitStep/std::sqrt(12.0));
         hit.SetTimeRMS(digitStep/std::sqrt(12.0));
         hits.push_back(CP::THandle<CP::TDataHit>(new CP::TDataHit(hit)));
