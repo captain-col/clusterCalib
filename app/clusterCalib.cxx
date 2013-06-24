@@ -34,5 +34,5 @@ private:
 
 int main(int argc, char **argv) {
     TClusterCalibLoop userCode;
-    CP::eventLoop(argc,argv,userCode,1);
+    CP::eventLoop(argc,argv,userCode);
 }
