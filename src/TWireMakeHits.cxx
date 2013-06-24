@@ -59,9 +59,9 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     bool useMarkov = false;
     int window = 3;
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
-                                       sigma, threshold,
-                                       removeBkg, iterations, 
-                                       useMarkov, window);
+                                        sigma, threshold,
+                                        removeBkg, iterations, 
+                                        useMarkov, window);
 
     // Get the peak positions and sort by time.
     float* xx = spectrum->GetPositionX();
