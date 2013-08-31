@@ -2,15 +2,22 @@ Define the constant runtime parameters.  These are the parameters that
 should not be looked up from a database.
 
 Define the time per digit in the TPulseDigit.  This specifies the minimum
-and is used to calculate the number of bins in the FFT.
+and is used to calculate the number of bins in the FFT.  The exact value
+isn't important, but it should be shorter (or at least equal to) the
+sampling time.  This does not control the actual calibration since the
+digitization step for a particular channel is found from the database (or
+was specified in elecSim for the MC).
 
 < clusterCalib.digitization.step = 250 ns >
 
 Define the maximum length of a pulse.  The exact value isn't important, but
-should be considerably longer than a pulse.
+should be considerably longer than a pulse.  There is a trade off since
+smaller values will run slightly faster.
 
 < clusterCalib.digitization.pulse = 100000 ns >
 
-Define the maximum length of the impulse response function.
+Define the maximum length of the impulse response function.  The exact
+value isn't important as long as it is longer than the response function.
+There is a trade off since smaller values will run slightly faster.
 
 < clusterCalib.digitization.response = 100000 ns >

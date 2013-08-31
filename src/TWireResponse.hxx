@@ -75,7 +75,9 @@ private:
     /// The channel id of the last calculation.
     CP::TChannelId fChannelId;
 
-    /// The class of the wire shape.  0) delta function, 1) derivative.
+    /// The class of the wire response function shape.  0) delta function, 1)
+    /// derivative.
+    enum {kDeltaFunction, kTimeDerivative};
     int fWireClass;
 
     /// The response distribution

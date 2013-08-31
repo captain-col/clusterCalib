@@ -26,16 +26,21 @@ public:
 
 private:
     /// The maximum pulse length (in time).  The fft (time sequence) length is
-    /// the pulse length plus the response length.  The number of samples is
-    /// the fft lenght divided by the digit step.
+    /// the pulse length plus the response length.  The exact value isn't
+    /// important as long as it is bigger, or equal to, the actual pulse
+    /// length. The number of samples is the fft length divided by the digit
+    /// step.
     double fPulseLength;
 
-    /// The maximum length of the response function.  See fPulseLength for
-    /// more documentation.
+    /// The maximum length of the response function.  The exact value of this
+    /// variable isn't important as long it is bigger than the actual response
+    /// function length.  See fPulseLength for more documentation.
     double fResponseLength;
 
-    /// The shortest time per sample in the ellectronics.  This is used to
-    /// calculate the length of the FFT.
+    /// The minimum time per sample in the ellectronics.  This is used to
+    /// calculate the length of the FFT, and the exact value isn't important
+    /// (as long as it is equal to, or shorter, than the actual time per
+    /// sample
     double fDigitStep;
 
     /// A convenient holder for the number of samples used in the FFT.  This

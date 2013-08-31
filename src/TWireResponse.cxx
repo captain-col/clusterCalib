@@ -14,10 +14,10 @@
 #include <memory>
 
 CP::TWireResponse::TWireResponse() 
-    : fMustRecalculate(true), fWireClass(0) {}
+    : fMustRecalculate(true), fWireClass(kDeltaFunction) {}
 
 CP::TWireResponse::TWireResponse(int size) 
-    : fMustRecalculate(true), fWireClass(0) {
+    : fMustRecalculate(true), fWireClass(kDeltaFunction) {
     fResponse.resize(size);
     fFrequency.resize(size);
 }
@@ -52,14 +52,20 @@ bool CP::TWireResponse::Calculate() {
 
     // Fill the response function.  This explicitly normalizes.
     switch (fWireClass) {
-    case 0:
+    case kDeltaFunction:
+        // Use a delta function in time for the wire response.  This is an
+        // appropriate approximation for the collection wires (i.e. the X
+        // plane).
         for (std::size_t i=0; i<fResponse.size(); ++i) {
             fResponse[i] = 0;
             fFrequency[i] = Frequency(1,0);
         }
         fResponse[0] = 1;
         return true;
-    case 1:
+    case kTimeDerivative:
+        // Use the derivative of the charge w.r.t. time for the wire response.
+        // This is an appropriate approximation for the induction wires
+        // (i.e. the U and V planes).
         for (std::size_t i=0; i<fResponse.size(); ++i) {
             fResponse[i] = 0;
             fFrequency[i] = Frequency(1,0);
@@ -112,15 +118,15 @@ bool CP::TWireResponse::Calculate(const CP::TEventContext& context,
         switch (index) {
         case 0:
         case 3:
-            if (fWireClass != 0) {
-                fWireClass = 0;
+            if (fWireClass != kDeltaFunction) {
+                fWireClass = kDeltaFunction;
                 fMustRecalculate = true;
             }
             break;
         case 1:
         case 2:
-            if (fWireClass != 1) {
-                fWireClass = 1;
+            if (fWireClass != kTimeDerivative) {
+                fWireClass = kTimeDerivative;
                 fMustRecalculate = true;
             }
             break;
