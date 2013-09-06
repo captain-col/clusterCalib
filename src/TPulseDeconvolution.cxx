@@ -5,6 +5,7 @@
 #include <TCalibPulseDigit.hxx>
 #include <TEvent.hxx>
 #include <TEventFolder.hxx>
+#include <TRuntimeParameters.hxx>
 
 #include <TVirtualFFT.h>
 
@@ -32,6 +33,10 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
 
     fElectronicsResponse = new CP::TElectronicsResponse(nSize);
     fWireResponse = new CP::TWireResponse(nSize);
+    fSmoothingWindow = CP::TRuntimeParameters::Get().GetParameterI(
+        "clusterCalib.smoothing.wire");
+    fSmoothingWindow = std::max(1,fSmoothingWindow + 1);
+
 }
 
 CP::TPulseDeconvolution::~TPulseDeconvolution() {}
@@ -46,18 +51,46 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     fWireResponse->Calculate(ev->GetContext(),
                              calib.GetChannelId());
 
+    // Copy the digit into the buffer for the FFT and then apply the
+    // transformation.
     for (int i=0; i<fSampleCount; ++i) {
         if (i < (int) calib.GetSampleCount()) {
-            double val = calib.GetSample(i);
-            if (i<5) val *= 1.0*i/5;
+            // Apply smoothing to the input signal.  This is controlled with
+            // clusterCalib.smoothing.wire
+            double val = 0.0;
+            double weight = 0.0;
+            for (int j=0; j<fSmoothingWindow; ++j) {
+                double w = fSmoothingWindow - j;
+                if (j == 0) {
+                    val += w * calib.GetSample(i);
+                    weight += w;
+                    continue;
+                }
+                if (0 <= (i-j)) {
+                    val += w * calib.GetSample(i-j);
+                    weight += w;
+                }
+                if ((i+j) < (int) calib.GetSampleCount()) {
+                    val += w * calib.GetSample(i+j);
+                    weight += w;
+                }
+            }
+            val /= weight;
+            // Make sure that the signal is zero at the very start.  This
+            // distorts the beginning of the signal, but there is a long
+            // buffer of noise there anyway.
+            double scale = 10.001;
+            if (i<scale) val *= 1.0*i/scale;
             fFFT->SetPoint(i,val);
         }
         else {
             int last = calib.GetSampleCount()-1;
             double scale = 10.0;
-            double delta = (i-last)/scale;
+            double delta = (i-last)/scale; delta *= delta;
             double val = 0.0;
-            if (delta < 40) val = calib.GetSample(last)*std::exp(-delta);
+            if (delta < 40) {
+                val = fFFT->GetPointReal(last,kTRUE)*std::exp(-delta);
+            }
             fFFT->SetPoint(i,val);
         }
     }

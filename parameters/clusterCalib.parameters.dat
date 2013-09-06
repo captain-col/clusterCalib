@@ -21,3 +21,8 @@ value isn't important as long as it is longer than the response function.
 There is a trade off since smaller values will run slightly faster.
 
 < clusterCalib.digitization.response = 100000 ns >
+
+Set the amount of smoothing to be applied to the input wires.  The value
+controls the number of "side-band" samples to use when smoothing a
+particular sample.  A value of zero means no smoothing.
+< clusterCalib.smoothing.wire = 2 >

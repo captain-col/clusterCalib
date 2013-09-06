@@ -54,5 +54,10 @@ private:
     /// then it may pay to have more than one.
     TWireResponse* fWireResponse;
 
+    /// Hold the number of side band samples to use during the smoothing.
+    /// This is set using clusterCalib.smoothing.wire, and is calculated to be
+    /// (clusterCalib.smoothing.wire + 1).
+    int fSmoothingWindow;
+
 };
 #endif
