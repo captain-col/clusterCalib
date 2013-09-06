@@ -24,6 +24,11 @@ public:
 
     bool operator()(CP::TEvent& event);
 
+    /// Set a flag to save the calibrated pulses.
+    void SaveCalibratedPulses(bool value = true) {
+        fSaveCalibratedPulses = value;
+    }
+    
 private:
     /// The maximum pulse length (in time).  The fft (time sequence) length is
     /// the pulse length plus the response length.  The exact value isn't
@@ -53,5 +58,10 @@ private:
 
     /// A class to deconvolute the electronics shape 
     CP::TPulseDeconvolution* fDeconvolution;
+
+    /// A flag that the calibrated pulse digits should be saved on the output.
+    /// This is the input into the peak finding.
+    bool fSaveCalibratedPulses;
+
 };
 #endif

@@ -33,6 +33,12 @@ private:
     // A buffer for the found peaks;
     float* fDest;
 
+    // The charge required at the peak for it to be considered valid.
+    double fPeakMaximumCut;
+
+    // The power in the TSpectrum deconvolution for the peak for it to be
+    // considered valid.
+    double fPeakDeconvolutionCut;
 };
 
 #endif

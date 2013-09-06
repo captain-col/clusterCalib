@@ -22,7 +22,18 @@ There is a trade off since smaller values will run slightly faster.
 
 < clusterCalib.digitization.response = 100000 ns >
 
-Set the amount of smoothing to be applied to the input wires.  The value
-controls the number of "side-band" samples to use when smoothing a
+Set the amount of time smoothing to be applied to the input wires.  The
+value controls the number of "side-band" samples to use when smoothing a
 particular sample.  A value of zero means no smoothing.
+
 < clusterCalib.smoothing.wire = 2 >
+
+After the wire channels are calibrated, the output FADC signals are
+analyzed for peaks using TSpectrum::SearchHighRes() using a very loose
+acceptance criteria.  Peaks found by the search are then examined to see if
+they are consistent with a real peak.  These parameters control the peak
+acceptance.  The charge is the charge value at the peak.  The deconvolution
+is the estimated power from the SearchHighRes() output.
+
+< clusterCalib.peakSearch.charge = 500 >
+< clusterCalib.peakSearch.deconvolution = 500 >
