@@ -9,6 +9,7 @@
 #include <TChannelId.hxx>
 
 #include <TVirtualFFT.h>
+#include <TH1F.h>
 
 #include <cmath>
 #include <memory>
@@ -84,7 +85,7 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
     // Fill the response function.  This explicitly normalizes.
     double sum = 0.0;
     for (std::size_t i=0; i<fResponse.size(); ++i) {
-        double arg = fSampleTime*i/fPeakingTime;
+        double arg = fSampleTime*(1.0*i+0.5)/fPeakingTime;
         double v = (arg<40)? arg*std::exp(-arg): 0.0;
         fResponse[i] = v;
         sum += v;
@@ -112,6 +113,24 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
         fft->GetPointComplex(i,rl,im);
         fFrequency[i] = std::complex<double>(rl,im);
     }
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* elecResp = new TH1F("elecResp",
+                              "Electronics Response",
+                              fResponse.size(),
+                              0.0, 1.0*fResponse.size());
+    for (std::size_t i=0; i<fResponse.size(); ++i) {
+        elecResp->Fill(i+0.5, std::abs(fResponse[i]));
+    }
+    TH1F* elecFreq = new TH1F("elecFreq",
+                                       "Electronics Frequency",
+                                       fFrequency.size(),
+                                       0.0, 1.0*fFrequency.size());
+    for (std::size_t i=0; i<fFrequency.size(); ++i) {
+        elecFreq->Fill(i+0.5, std::abs(fFrequency[i]));
+    }
+#endif
 
     return true;
 }
