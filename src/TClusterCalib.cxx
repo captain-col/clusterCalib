@@ -114,6 +114,17 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
     CP::TWireMakeHits makeWireHits;
 
+#define SAVE_DECONV_DIGITS
+#ifdef SAVE_DECONV_DIGITS
+    // Make a container to hold the deconvoluted digits.
+    CP::THandle<CP::TDataVector> dv
+        = event.Get<CP::TDataVector>("~/digits");
+    CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
+    dv->AddDatum(dg);
+    CP::THandle<CP::TDigitContainer> driftDeconv
+        = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
+#endif
+
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse 
@@ -153,6 +164,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             deconvHist->SetBinContent(i+1,deconv->GetSample(i));
         }
         deconvHist->ShowPeaks(3.0,"",0.15);
+#endif
+
+#ifdef SAVE_DECONV_DIGITS
+        driftDeconv->push_back(deconv.release());
 #endif
     }
     if (driftHits->size() > 0) {
