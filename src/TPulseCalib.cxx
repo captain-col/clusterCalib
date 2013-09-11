@@ -6,7 +6,7 @@
 #include <TMCChannelId.hxx>
 #include <TEventFolder.hxx>
 #include <TRealDatum.hxx>
-
+#include <HEPUnits.hxx>
 #include <TEvent.hxx>
 
 CP::TPulseCalib::TPulseCalib() {}
@@ -21,6 +21,7 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
     TChannelId chan(pulse->GetChannelId());
 
     double digitStep;
+    double timeOffset;
     double pedestal;
     double gain;
 
@@ -42,6 +43,14 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
             = ev->Get<CP::TRealDatum>("~/truth/elecSimple/digitStep");
         digitStep = (*stepVect)[index];
 
+        // The offset for the digitization time for each type of MC channel.
+        // This was determined "empirically", and depends on the details of
+        // the simulation.  It should be in the parameter file.  The exact
+        // value depends on the details of the time clustering.
+        if (index == 1) timeOffset = -digitStep + 23*unit::ns;
+        else if (index == 2) timeOffset = -digitStep + 52*unit::ns;
+        else timeOffset = 0.0;
+
         // Get the pedestal
         CP::THandle<CP::TRealDatum> pedVect
             = ev->Get<CP::TRealDatum>("~/truth/elecSimple/pedestal");
@@ -57,9 +66,10 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
         return NULL;
     }
 
-    double startTime = digitStep*pulse->GetFirstSample();
+    double startTime = digitStep*pulse->GetFirstSample() + timeOffset;
     double stopTime 
-        = digitStep*(pulse->GetFirstSample()+pulse->GetSampleCount());
+        = digitStep*(pulse->GetFirstSample()+pulse->GetSampleCount()) 
+        + timeOffset;
     CP::TCalibPulseDigit::Vector samples(pulse->GetSampleCount());
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
         samples[i] = 1.0*(pulse->GetSample(i)-pedestal)/gain;
