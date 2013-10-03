@@ -6,6 +6,7 @@
 #include <TEvent.hxx>
 #include <TEventFolder.hxx>
 #include <TRuntimeParameters.hxx>
+#include <TMCChannelId.hxx>
 
 #include <TVirtualFFT.h>
 
@@ -17,6 +18,8 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fSmoothingWindow = CP::TRuntimeParameters::Get().GetParameterI(
         "clusterCalib.smoothing.wire");
     fSmoothingWindow = std::max(1,fSmoothingWindow + 1);
+    fBaselineWindow = 20;
+    fFluctuationCut = 3.0;
     fFFT = NULL;
     fInverseFFT = NULL;
     fElectronicsResponse = NULL;
@@ -135,34 +138,97 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         deconv->SetSample(i,v);
     }
 
-#define SMOOTH
-#ifdef SMOOTH
-    std::vector<double> baseline;
-    baseline.resize(deconv->GetSampleCount());
-    // Set the samples into the calibrated pulse digit.
-    int window = std::min(81,(int) deconv->GetSampleCount()/10);
-    for (int i=0; i < (int) deconv->GetSampleCount(); ++i) {
-        int low = std::max(0,i-window/2);
-        int high = low + window;
-        if (high > (int) deconv->GetSampleCount()) {
-            low = deconv->GetSampleCount() - window;
-            high = deconv->GetSampleCount();
-        }
-        double v = 0.0;
-        double w = 0.0;
-        for (int j = low; j < high; ++j) {
-            double r = 1 - std::abs((j - 0.5*(high+low))/(0.5*(high-low+1)));
-            v += r*deconv->GetSample(j);
-            w += r;
-        }
-        v /= w;
-        baseline[i]=v;
-    }
-    for (int i=0; i < (int) deconv->GetSampleCount(); ++i) {
-        double v = deconv->GetSample(i) - baseline[i];
-        deconv->SetSample(i,v);
-    }
-#endif
+    RemoveBaseline(*deconv);
 
     return deconv.release();
+}
+
+void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
+
+    // Calculate the average f all of the deltas.
+    double avgDelta = 0.0;
+    double deltaCount = 0.0;
+    for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
+        avgDelta += std::abs(digit.GetSample(i) - digit.GetSample(i-1));
+        deltaCount += 1.0;
+    }
+    avgDelta /= deltaCount;
+    
+    // Now calculate the average of the deltas, but exclude the outliers
+    double  truncatedDelta = 0.0;
+    deltaCount = 0.0;
+    for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
+        double d = std::abs(digit.GetSample(i) - digit.GetSample(i-1));
+        if (d>fFluctuationCut*avgDelta) continue;
+        truncatedDelta += d;
+        deltaCount += 1.0;
+    }
+    truncatedDelta /= deltaCount;
+    
+    std::vector<double> baseline;
+    baseline.resize(digit.GetSampleCount());
+
+    for (std::size_t i=0; i<digit.GetSampleCount(); ++i) {
+        // Find a region of just random fluctuations below the current
+        // element.
+        std::size_t low = 0;
+        if (i > 2*fBaselineWindow) {
+            low = i - 2*fBaselineWindow;
+            while (low>1) {
+                bool found = true;
+                for (std::size_t j=0; j<fBaselineWindow; ++j) {
+                    double d = std::abs(digit.GetSample(low+j)
+                                        -digit.GetSample(low+j+1));
+                    if (d>fFluctuationCut*truncatedDelta) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) break;
+                --low;
+            }
+        }
+        
+        // Find a region of just random fluctuations above the current
+        // element.
+        std::size_t high = digit.GetSampleCount();
+        if (i + 2*fBaselineWindow < high) {
+            high = i + 2*fBaselineWindow;
+            while (high < digit.GetSampleCount()) {
+                bool found = true;
+                for (std::size_t j=0; j<fBaselineWindow; ++j) {
+                    double d = std::abs(digit.GetSample(high-j)
+                                        -digit.GetSample(high-j-1));
+                    if (d>fFluctuationCut*truncatedDelta) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) break;
+                ++high;
+            }
+        }
+        
+        double base=0.0;
+        double baseWght = 0.0;
+        // Find the lower average.
+        for (std::size_t j = 0; j<fBaselineWindow; ++j) {
+            double r = (j+1)*(fBaselineWindow-j+1);
+            base += r*digit.GetSample(low+j);
+            baseWght += r;
+        }
+        // Find the upper average.
+        for (std::size_t j = 0; j<fBaselineWindow; ++j) {
+            double r = (j+1)*(fBaselineWindow-j+1);
+            base += r*digit.GetSample(high-j);
+            baseWght += r;
+        }
+        baseline[i] = base/baseWght;
+    }
+
+    for (int i=0; i < (int) digit.GetSampleCount(); ++i) {
+        double v = digit.GetSample(i) - baseline[i];
+        digit.SetSample(i,v);
+    }
+
 }

@@ -36,6 +36,11 @@ private:
     /// Initialize the class.
     void Initialize();
 
+    /// Remove the baseline drift that is introduced by random for the
+    /// induction wires.  This is applied after the deconvolution, and doesn't
+    /// affect the collection wires.
+    void RemoveBaseline(CP::TCalibPulseDigit& digit);
+
     /// A convenient holder for the number of samples used in the FFT.  This
     /// must equivalent to fFFT->GetN()[0], or there is a bug.  The
     /// equivalence is guarranteed in the constructor.
@@ -61,6 +66,12 @@ private:
     /// This is set using clusterCalib.smoothing.wire, and is calculated to be
     /// (clusterCalib.smoothing.wire + 1).
     int fSmoothingWindow;
+
+    /// Hold the window for baseline subtraction
+    std::size_t fBaselineWindow;
+
+    /// Hold the cut for random fluctuations.
+    double fFluctuationCut;
 
 };
 #endif
