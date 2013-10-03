@@ -33,6 +33,9 @@ public:
 
 private:
 
+    /// Initialize the class.
+    void Initialize();
+
     /// A convenient holder for the number of samples used in the FFT.  This
     /// must equivalent to fFFT->GetN()[0], or there is a bug.  The
     /// equivalence is guarranteed in the constructor.

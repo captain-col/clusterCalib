@@ -57,18 +57,18 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        TH1F* sourceHist 
-            = new TH1F((digit.GetChannelId().AsString()+"-source").c_str(),
-                       ("Source for " 
-                        + digit.GetChannelId().AsString()).c_str(),
-                       digit.GetSampleCount(),
-                       0.0, 1.0*digit.GetSampleCount());
-        for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-            sourceHist->SetBinContent(i+1,fSource[i]);
-        }
+    TH1F* sourceHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-source").c_str(),
+                   ("Source for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   0.0, 1.0*digit.GetSampleCount());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        sourceHist->SetBinContent(i+1,fSource[i]);
+    }
 #endif
         
-    TSpectrum* spectrum = new TSpectrum;
+    TSpectrum* spectrum = new TSpectrum(1000);
 
     // Find the time per sample in the digit.
     double digitStep = digit.GetLastSample()-digit.GetFirstSample();
