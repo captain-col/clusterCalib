@@ -114,7 +114,6 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
         fFrequency[i] = std::complex<double>(rl,im);
     }
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* elecResp = new TH1F("elecResp",

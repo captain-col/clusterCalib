@@ -184,7 +184,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     if (!gClusterCalibXCharge) {
