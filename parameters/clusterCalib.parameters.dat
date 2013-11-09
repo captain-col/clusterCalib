@@ -36,4 +36,4 @@ acceptance.  The charge is the charge value at the peak.  The deconvolution
 is the estimated power from the SearchHighRes() output.
 
 < clusterCalib.peakSearch.charge = 500 >
-< clusterCalib.peakSearch.deconvolution = 500 >
+< clusterCalib.peakSearch.deconvolution = 300 >
