@@ -41,7 +41,7 @@ CP::TWireMakeHits::~TWireMakeHits() {
 
 CP::THandle<CP::THit> 
 CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, double step,
-                           int beginIndex, int endIndex) {
+                           int beginIndex, int endIndex, bool split) {
     double charge = 0.0;
     double sample = 0.0;
     double sampleSquared = 0.0;
@@ -65,6 +65,12 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, double step,
     // Find the sample RMS, and then convert into a time RMS.
     double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
     
+    // If this is from a pulse that is being split, then the RMS is defined by
+    // the half width of the split part of the pulse.
+    if (split) {
+        rms = 0.5*step*(endIndex-beginIndex);
+    }
+
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.
     double timeUnc = rms/std::sqrt(samples);
@@ -256,7 +262,9 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
              baseIndex += step) {
             int i = baseIndex;
             int j = baseIndex + step;
-            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, i, j);
+            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep,
+                                                   i, j,
+                                                   (split > 1));
             hits.push_back(newHit);
         }            
     }

@@ -28,7 +28,7 @@ private:
     /// The digit step size is provided as an input.
     CP::THandle<CP::THit> 
     MakeHit(const CP::TCalibPulseDigit& digit, double digitStep,
-            int beginIndex, int endIndex) ;
+            int beginIndex, int endIndex, bool split);
 
     /// A buffer for the spectrum.
     float* fSource;
