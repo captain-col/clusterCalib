@@ -67,11 +67,16 @@ private:
     /// (clusterCalib.smoothing.wire + 1).
     int fSmoothingWindow;
 
-    /// Hold the window for baseline subtraction
-    std::size_t fBaselineWindow;
-
     /// Hold the cut for random fluctuations.
     double fFluctuationCut;
 
+    /// When determining where the peaks probably are so they can be excluded
+    /// from the baseline estimate, this is the number of samples that have to
+    /// stay inside the fFluctuationCut.
+    int fCoherenceZone;
+
+    /// The number of samples that have to be within fFluctuationCut for a
+    /// region to be considered "coherent".
+    double fCoherenceFraction;
 };
 #endif

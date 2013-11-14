@@ -30,13 +30,13 @@ private:
     MakeHit(const CP::TCalibPulseDigit& digit, double digitStep,
             int beginIndex, int endIndex, bool split);
 
-    /// A buffer for the spectrum.
-    float* fSource;
-
     /// The size of the buffer for the spectrum
     int fNSource;
 
-    /// A buffer for the found peaks;
+    /// A buffer for the spectrum.
+    float* fSource;
+
+    /// A buffer for the found peaks.
     float* fDest;
 
     /// The charge required at the peak for it to be considered valid.

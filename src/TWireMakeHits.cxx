@@ -17,9 +17,9 @@
 #include <algorithm>
 
 CP::TWireMakeHits::TWireMakeHits() {
+    fNSource = 0;
     fSource = NULL;
     fDest = NULL;
-    fNSource = 0;
 
     fPeakMaximumCut 
         = CP::TRuntimeParameters::Get().GetParameterD(
@@ -106,7 +106,6 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         fNSource = 2*digit.GetSampleCount();
         fSource = new float[fNSource];
         fDest = new float[fNSource];
-
     }
     
     // Fill the spectrum.
@@ -124,7 +123,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                    digit.GetSampleCount(),
                    0.0, 1.0*digit.GetSampleCount());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        sourceHist->SetBinContent(i+1,fSource[i]);
+        sourceHist->SetBinContent(i+1,fSource[i]-1000.0);
     }
 #endif
         
@@ -137,7 +136,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // peaks are found.
     double sigma = 2.0;
     double threshold = 1;
-    bool removeBkg = true;
+    bool removeBkg = false;
     int iterations = 15;
     bool useMarkov = true;
     int window = 3;

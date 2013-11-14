@@ -26,7 +26,7 @@ Set the amount of time smoothing to be applied to the input wires.  The
 value controls the number of "side-band" samples to use when smoothing a
 particular sample.  A value of zero means no smoothing.
 
-< clusterCalib.smoothing.wire = 2 >
+< clusterCalib.smoothing.wire = 5 >
 
 After the wire channels are calibrated, the output FADC signals are
 analyzed for peaks using TSpectrum::SearchHighRes() using a very loose
