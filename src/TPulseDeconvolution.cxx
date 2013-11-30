@@ -1,6 +1,7 @@
 #include "TPulseDeconvolution.hxx"
 #include "TElectronicsResponse.hxx"
 #include "TWireResponse.hxx"
+#include "TChannelCalib.hxx"
 
 #include <TCalibPulseDigit.hxx>
 #include <TEvent.hxx>
@@ -285,14 +286,11 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // Now remove the baseline from the sample and calculate the sigma for the
     // baseline (relative to the mean baseline).
     fBaselineSigma = 0.0;
-    double avg = 0.0;
     for (std::size_t i=0; i<digit.GetSampleCount(); ++i) {
-        avg += baseline[i];
         fBaselineSigma += baseline[i]*baseline[i];
         double d = digit.GetSample(i) - baseline[i];
         digit.SetSample(i,d);
     }
-    avg /= digit.GetSampleCount();
     fBaselineSigma /= digit.GetSampleCount();
     if (fBaselineSigma > 0.0) {
         fBaselineSigma = std::sqrt(fBaselineSigma);
