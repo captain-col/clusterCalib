@@ -26,6 +26,7 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fInverseFFT = NULL;
     fElectronicsResponse = NULL;
     fWireResponse = NULL;
+    fBaselineSigma = 0.0;
     Initialize();
 }
 
@@ -58,11 +59,12 @@ void CP::TPulseDeconvolution::Initialize() {
     if (fWireResponse) delete fWireResponse;
     fWireResponse = new CP::TWireResponse(nSize);
 
+    fBaselineSigma = 0.0;
 }
 
 CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator() 
     (const CP::TCalibPulseDigit& calib) {
-    
+
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
 
     if (fSampleCount < (int) calib.GetSampleCount()) {
@@ -146,7 +148,6 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
 }
 
 void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
-
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
@@ -281,10 +282,23 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
 #endif
         
-    // Now remove the baseline from the sample.
+    // Now remove the baseline from the sample and calculate the sigma for the
+    // baseline (relative to the mean baseline).
+    fBaselineSigma = 0.0;
+    double avg = 0.0;
     for (std::size_t i=0; i<digit.GetSampleCount(); ++i) {
+        avg += baseline[i];
+        fBaselineSigma += baseline[i]*baseline[i];
         double d = digit.GetSample(i) - baseline[i];
         digit.SetSample(i,d);
+    }
+    avg /= digit.GetSampleCount();
+    fBaselineSigma /= digit.GetSampleCount();
+    if (fBaselineSigma > 0.0) {
+        fBaselineSigma = std::sqrt(fBaselineSigma);
+    }
+    else {
+        fBaselineSigma = 0.0;
     }
 
 }

@@ -31,6 +31,11 @@ public:
     /// Get the number of samples in the FFT.
     int GetSampleCount() {return fSampleCount;}
 
+    /// Get the baseline uncertainty.  This is calculated relative to the
+    /// average baseline and represents the per sample uncertainty in the
+    /// deconvolution.
+    double GetBaselineSigma() {return fBaselineSigma;}
+
 private:
 
     /// Initialize the class.
@@ -78,5 +83,8 @@ private:
     /// The number of samples that have to be within fFluctuationCut for a
     /// region to be considered "coherent".
     double fCoherenceFraction;
+
+    /// The baseline sigma relative to the average baseline.
+    double fBaselineSigma;
 };
 #endif
