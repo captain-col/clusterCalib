@@ -297,6 +297,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
     else {
         fBaselineSigma = 0.0;
+
     }
 
 }

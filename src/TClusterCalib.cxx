@@ -150,7 +150,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-        makeWireHits(*driftHits,*deconv);
+        makeWireHits(*driftHits,*deconv,fDeconvolution->GetBaselineSigma());
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM

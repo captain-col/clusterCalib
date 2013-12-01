@@ -18,16 +18,20 @@ public:
     /// Take a TCalibPulseDigit reference and find any hits in the pulse.  Any
     /// hits that are found are appended to output THitSelection.  This takes
     /// a hit selection of PMT hits that will be used as a hint for the
-    /// expected dispersion of the wire signals.
+    /// expected dispersion of the wire signals.  If the sample uncertainty is
+    /// provided, this is the uncertainty of each measurement in the
+    /// TCalibPulseDigit.
     void operator () (CP::THitSelection& hits, 
-                      const CP::TCalibPulseDigit& digits);
+                      const CP::TCalibPulseDigit& digits,
+                      double sampleSigma = 0.0);
 
 private:
 
     /// Build a hit out of the digit samples between beginIndex and endIndex.
     /// The digit step size is provided as an input.
     CP::THandle<CP::THit> 
-    MakeHit(const CP::TCalibPulseDigit& digit, double digitStep,
+    MakeHit(const CP::TCalibPulseDigit& digit, 
+            double digitStep, double digitSigma,
             int beginIndex, int endIndex, bool split);
 
     /// The size of the buffer for the spectrum

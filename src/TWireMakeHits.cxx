@@ -1,4 +1,5 @@
 #include "TWireMakeHits.hxx"
+#include "TChannelCalib.hxx"
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -40,7 +41,8 @@ CP::TWireMakeHits::~TWireMakeHits() {
 }
 
 CP::THandle<CP::THit> 
-CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, double step,
+CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, 
+                           double step, double sigma,
                            int beginIndex, int endIndex, bool split) {
     double charge = 0.0;
     double sample = 0.0;
@@ -75,10 +77,12 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, double step,
     // the RMS.
     double timeUnc = rms/std::sqrt(samples);
 
-    // The charge uncertainty is bogus here.  For now it's based on the sqrt
-    // of the charge (assumes Poissonian statistics), but that is almost
-    // certainly an underestimate.
-    double chargeUnc = std::sqrt(charge);
+    // The charge uncertainty is calculated assuming the limit of Poisson
+    // statistics, but assumes that the background uncertainties are
+    // correlated.
+    CP::TChannelCalib calib;
+    double gain = calib.GetGainConstant(digit.GetChannelId(),1);
+    double chargeUnc = std::sqrt(charge/gain) + sigma*samples;
 
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
@@ -97,7 +101,8 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, double step,
 }
 
 void CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
-                                    const CP::TCalibPulseDigit& digit) {
+                                    const CP::TCalibPulseDigit& digit,
+                                    double digitSigma) {
 
     // Make sure we have enough memory allocated for the spectrum.
     if (fNSource < (int) digit.GetSampleCount()) {
@@ -261,7 +266,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
              baseIndex += step) {
             int i = baseIndex;
             int j = baseIndex + step;
-            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep,
+            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, digitSigma,
                                                    i, j,
                                                    (split > 1));
             hits.push_back(newHit);
