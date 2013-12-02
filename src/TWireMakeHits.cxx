@@ -36,8 +36,8 @@ CP::TWireMakeHits::TWireMakeHits() {
 
 }
 CP::TWireMakeHits::~TWireMakeHits() {
-    if (fSource) delete fSource;
-    if (fDest) delete fDest;
+    if (fSource) delete[] fSource;
+    if (fDest) delete[] fDest;
 }
 
 CP::THandle<CP::THit> 
@@ -106,8 +106,8 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
     // Make sure we have enough memory allocated for the spectrum.
     if (fNSource < (int) digit.GetSampleCount()) {
-        if (fSource) delete fSource;
-        if (fDest) delete fDest;
+        if (fSource) delete[] fSource;
+        if (fDest) delete[] fDest;
         fNSource = 2*digit.GetSampleCount();
         fSource = new float[fNSource];
         fDest = new float[fNSource];
