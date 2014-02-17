@@ -152,6 +152,19 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* offsetHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-offset").c_str(),
+                   ("Deconvolution with offset for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   0.0, 1.0*digit.GetSampleCount());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        offsetHist->SetBinContent(i+1,digit.GetSample(i));
+    }
+#endif
+        
     // Find the median sample to sample difference.  Regions where the samples
     // stay withing a small difference don't have a "feature of interest".
     double avgDelta = 0.0;
