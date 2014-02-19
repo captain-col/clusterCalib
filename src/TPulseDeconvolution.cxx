@@ -28,6 +28,7 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fElectronicsResponse = NULL;
     fWireResponse = NULL;
     fBaselineSigma = 0.0;
+    fSampleSigma = 0.0;
     Initialize();
 }
 
@@ -174,9 +175,12 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
     std::sort(diff.begin(), diff.end());
 
-    avgDelta = diff[0.5*digit.GetSampleCount()];
+    // The 52 percentile is a of the sample-to-sample differences is a good
+    // estimate of the distribution sigma.  This was checked empirically for
+    // the normal distribution.
+    fSampleSigma = diff[0.52*digit.GetSampleCount()];
+    double deltaCut = fSampleSigma*fFluctuationCut;
 
-    double deltaCut = avgDelta*fFluctuationCut;
     CP::TMCChannelId channel(digit.GetChannelId());
 
     // Refill the differences...
@@ -269,7 +273,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         interp /= 1.0*k-j;
         baseline[i] = interp;
     }
-    
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* bkgHist 
@@ -299,18 +303,20 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // Now remove the baseline from the sample and calculate the sigma for the
     // baseline (relative to the mean baseline).
     fBaselineSigma = 0.0;
+    double aveBaseline = 0.0;
     for (std::size_t i=0; i<digit.GetSampleCount(); ++i) {
         fBaselineSigma += baseline[i]*baseline[i];
+        aveBaseline += baseline[i];
         double d = digit.GetSample(i) - baseline[i];
         digit.SetSample(i,d);
     }
     fBaselineSigma /= digit.GetSampleCount();
+    aveBaseline /= digit.GetSampleCount();
     if (fBaselineSigma > 0.0) {
-        fBaselineSigma = std::sqrt(fBaselineSigma);
+        fBaselineSigma = std::sqrt(fBaselineSigma-aveBaseline*aveBaseline);
     }
     else {
         fBaselineSigma = 0.0;
-
     }
 
 }

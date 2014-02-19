@@ -36,6 +36,10 @@ public:
     /// deconvolution.
     double GetBaselineSigma() {return fBaselineSigma;}
 
+    /// Get the sample to sample sigma.  Represents the uncorrelated
+    /// uncertainty between samples.
+    double GetSampleSigma() {return fSampleSigma;}
+
 private:
 
     /// Initialize the class.
@@ -86,5 +90,8 @@ private:
 
     /// The baseline sigma relative to the average baseline.
     double fBaselineSigma;
+    
+    /// The sample to sample sigma.
+    double fSampleSigma;
 };
 #endif
