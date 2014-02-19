@@ -42,7 +42,8 @@ CP::TWireMakeHits::~TWireMakeHits() {
 
 CP::THandle<CP::THit> 
 CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, 
-                           double step, double sigma,
+                           double step, 
+                           double baselineSigma, double sampleSigma,
                            int beginIndex, int endIndex, bool split) {
     double charge = 0.0;
     double sample = 0.0;
@@ -81,8 +82,8 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     // statistics, but assumes that the background uncertainties are
     // correlated.
     CP::TChannelCalib calib;
-    double gain = calib.GetGainConstant(digit.GetChannelId(),1);
-    double chargeUnc = std::sqrt(charge/gain) + sigma*samples;
+    double sig = sampleSigma*std::sqrt(samples);
+    double chargeUnc = std::sqrt(charge + sig*sig) + baselineSigma*samples;
 
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
@@ -102,7 +103,8 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
 void CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
                                     const CP::TCalibPulseDigit& digit,
-                                    double digitSigma) {
+                                    double baselineSigma,
+                                    double sampleSigma) {
 
     // Make sure we have enough memory allocated for the spectrum.
     if (fNSource < (int) digit.GetSampleCount()) {
@@ -216,19 +218,25 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         }
 
         // Search down from the peak center to find the actual integration
-        // bounds based on the actual extent of the peak.
+        // bounds based on the actual extent of the peak.  This extends beyond
+        // the edge of the peak to pick up some of the background.
         int j = beginIndex;
+        int endCount = -1;
         for (beginIndex = i-1; j <= beginIndex; --beginIndex) {
             double v = digit.GetSample(beginIndex);
-            if (v < chargeThresh*peak) break;
+            if (endCount > 0 && --endCount == 0) break;
+            if (endCount < 0 && v < chargeThresh*peak) endCount = 10;
         }
 
         // Search up from the peak center to find the actual integration
-        // bounds based on the actual extent of the peak.
+        // bounds based on the actual extent of the peak.  This extends beyond
+        // the edge of the peak to pick up some of the background.
         j = endIndex;
+        endCount = -1;
         for (endIndex = i+1; endIndex < j; ++endIndex) {
             double v = digit.GetSample(endIndex);
-            if (v < chargeThresh*peak) break;
+            if (endCount > 0 && --endCount == 0) break;
+            if (endCount < 0 && v < chargeThresh*peak) endCount = 10;
         }
 
         double charge = 0.0;
@@ -266,7 +274,9 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
              baseIndex += step) {
             int i = baseIndex;
             int j = baseIndex + step;
-            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, digitSigma,
+            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, 
+                                                   baselineSigma,
+                                                   sampleSigma,
                                                    i, j,
                                                    (split > 1));
             hits.push_back(newHit);
