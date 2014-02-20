@@ -23,6 +23,7 @@ public:
     /// TCalibPulseDigit.
     void operator () (CP::THitSelection& hits, 
                       const CP::TCalibPulseDigit& digits,
+                      double t0,
                       double baseSigma = 0.0,
                       double sampleSigma = 0.0);
 
@@ -32,7 +33,8 @@ private:
     /// The digit step size is provided as an input.
     CP::THandle<CP::THit> 
     MakeHit(const CP::TCalibPulseDigit& digit, 
-            double digitStep, double baselineSigma, double sampleSigma,
+            double digitStep, double t0,
+            double baselineSigma, double sampleSigma,
             int beginIndex, int endIndex, bool split);
 
     /// The size of the buffer for the spectrum

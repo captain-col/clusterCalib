@@ -9,6 +9,7 @@
 #include <TRuntimeParameters.hxx>
 #include <HEPUnits.hxx>
 #include <CaptGeomId.hxx>
+#include <TUnitsTable.hxx>
 
 #include <TChannelInfo.hxx>
 
@@ -115,7 +116,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         spectrum.Search(deconvHist,2.0,"",0.05);
 #endif
     }
+    double t0 = 1E+50;
     if (pmtHits->size() > 0) {
+        for (CP::THitSelection::iterator p = pmtHits->begin();
+             p != pmtHits->end(); ++p) {
+            t0 = std::min((*p)->GetTime(),t0);
+        }
         // Add the pmt hits to the output.
         CP::THandle<CP::TDataVector> hits
             = event.Get<CP::TDataVector>("~/hits");
@@ -150,7 +156,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-        makeWireHits(*driftHits,*deconv,fDeconvolution->GetBaselineSigma());
+        makeWireHits(*driftHits,*deconv,t0,
+                     fDeconvolution->GetBaselineSigma(),
+                     fDeconvolution->GetSampleSigma());
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -186,20 +194,21 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
+    double maxCharge = 50000;
     if (!gClusterCalibXCharge) {
         gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
                                         "Calibrated Charge for the X wires",
-                                        100, 0.0, 50000.0);
+                                        100, 0.0, maxCharge);
     }
     if (!gClusterCalibUCharge) {
         gClusterCalibUCharge = new TH1F("clusterCalibUCharge",
                                         "Calibrated Charge for the U wires",
-                                        100, 0.0, 50000.0);
+                                        100, 0.0, maxCharge);
     }
     if (!gClusterCalibVCharge) {
         gClusterCalibVCharge = new TH1F("clusterCalibVCharge",
                                         "Calibrated Charge for the V wires",
-                                        100, 0.0, 50000.0);
+                                        100, 0.0, maxCharge);
     }
 
     for (CP::THitSelection::iterator h = driftHits->begin();
@@ -214,6 +223,80 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
         hist->Fill((*h)->GetCharge());
     }
+#endif
+
+    // Summarize the charges.
+    double xWireCharge = 0.0;
+    double xWireUnc = 0.0;
+    double vWireCharge = 0.0;
+    double vWireUnc = 0.0;
+    double uWireCharge = 0.0;
+    double uWireUnc = 0.0;
+    for (CP::THitSelection::iterator h = driftHits->begin();
+         h != driftHits->end(); ++h) {
+        TGeometryId id = (*h)->GetGeomId();
+        switch (CP::GeomId::Captain::GetWirePlane(id)) {
+        case 0: {
+            xWireCharge += (*h)->GetCharge(); 
+            double u = (*h)->GetChargeUncertainty();
+            xWireUnc += u*u;
+            break;
+        }
+        case 1: {
+            vWireCharge += (*h)->GetCharge(); 
+            double u = (*h)->GetChargeUncertainty();
+            vWireUnc += u*u;
+            break;
+        }
+        case 2: {
+            uWireCharge += (*h)->GetCharge(); 
+            double u = (*h)->GetChargeUncertainty();
+            uWireUnc += u*u;
+            break;
+        }
+        default: std::exit(1);
+        }
+    }
+    xWireUnc = std::sqrt(xWireUnc);
+    vWireUnc = std::sqrt(vWireUnc);
+    uWireUnc = std::sqrt(uWireUnc);
+    double xv = (xWireCharge-vWireCharge);
+    xv /= std::sqrt(xWireUnc*xWireUnc + vWireUnc*vWireUnc);
+    double xu = (xWireCharge-uWireCharge);
+    xu /= std::sqrt(xWireUnc*xWireUnc + uWireUnc*uWireUnc);
+    double vu = (vWireCharge-uWireCharge);
+    vu /= std::sqrt(vWireUnc*vWireUnc + uWireUnc*uWireUnc);
+    CaptNamedInfo("TClusterCalib",
+                  "X: "<< unit::AsString(xWireCharge,xWireUnc,"pe")
+                  << "   V: " << unit::AsString(vWireCharge,vWireUnc,"pe")
+                  << "   U: " << unit::AsString(uWireCharge,uWireUnc,"pe"));
+    CaptNamedInfo("TClusterCalib",
+                  "X-V/sigma: " << xv
+                  << "   X-U/sigma: " << xu
+                  << "   V-U/sigma: " << vu);
+    
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    double maxCharge = 500;
+    if (!gClusterCalibXCharge) {
+        gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
+                                        "Calibrated Charge for the X wires",
+                                        100, 0.0, maxCharge);
+    }
+    if (!gClusterCalibUCharge) {
+        gClusterCalibUCharge = new TH1F("clusterCalibUCharge",
+                                        "Calibrated Charge for the U wires",
+                                        100, 0.0, maxCharge);
+    }
+    if (!gClusterCalibVCharge) {
+        gClusterCalibVCharge = new TH1F("clusterCalibVCharge",
+                                        "Calibrated Charge for the V wires",
+                                        100, 0.0, maxCharge);
+    }
+
+    gClusterCalibXCharge->Fill(xWireCharge/29300.0);
+    gClusterCalibVCharge->Fill(vWireCharge/29300.0);
+    gClusterCalibUCharge->Fill(uWireCharge/29300.0);
 #endif
 
     if (driftHits->size() > 0) {

@@ -3,7 +3,7 @@
 \section clusterCalib The Cluster Calibration
 
 This takes digitized pulses and translates them into time and charge hits
-for each wire.  One of the main distinctions between this and the
+for each wire and PMT.  One of the main distinctions between this and the
 reconstruction is that the calibration is heavily dependent on time-varying
 values stored in the data base.  As much as possible, the reconstruction
 code is insensitive to time variations in the data.

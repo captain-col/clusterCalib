@@ -42,7 +42,7 @@ CP::TWireMakeHits::~TWireMakeHits() {
 
 CP::THandle<CP::THit> 
 CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, 
-                           double step, 
+                           double step, double t0,
                            double baselineSigma, double sampleSigma,
                            int beginIndex, int endIndex, bool split) {
     double charge = 0.0;
@@ -81,12 +81,18 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     // The charge uncertainty is calculated assuming the limit of Poisson
     // statistics, but assumes that the background uncertainties are
     // correlated.
-    CP::TChannelCalib calib;
     double sig = sampleSigma*std::sqrt(samples);
     double chargeUnc = std::sqrt(charge + sig*sig) + baselineSigma*samples;
 
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
+
+    // Correct for attenuation
+    TChannelCalib calib;
+    double deltaT = time - t0;
+    if (deltaT > 0.0) {
+        charge *= std::exp(deltaT/calib.GetElectronLifetime());
+    }
 
     // Build the hit.
     CP::TWritableDataHit hit;
@@ -103,6 +109,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
 void CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
                                     const CP::TCalibPulseDigit& digit,
+                                    double t0,
                                     double baselineSigma,
                                     double sampleSigma) {
 
@@ -274,7 +281,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
              baseIndex += step) {
             int i = baseIndex;
             int j = baseIndex + step;
-            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, 
+            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, t0,
                                                    baselineSigma,
                                                    sampleSigma,
                                                    i, j,
