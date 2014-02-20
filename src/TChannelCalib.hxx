@@ -31,6 +31,11 @@ public:
     /// linear, order 2 is quadratic, etc.
     double GetTimeConstant(CP::TChannelId id, int order=1);
 
+    /// Get the electron lifetime.
+    double GetElectronLifetime();
+
+    /// Get the electron drift velocity.
+    double GetElectronDriftVelocity();
 };
 
 #endif

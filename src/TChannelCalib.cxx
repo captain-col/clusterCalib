@@ -88,3 +88,23 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
     throw EChannelCalibUnknownType();
     return 0.0;
 }
+
+double CP::TChannelCalib::GetElectronLifetime() {
+    CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+    
+    // Get the electron lifetime.
+    CP::THandle<CP::TRealDatum> stepVect
+        = ev->Get<CP::TRealDatum>("~/truth/elecSimple/argon");
+    if (!stepVect) return 2*unit::millisecond;
+    return (*stepVect)[1];
+}
+
+double CP::TChannelCalib::GetElectronDriftVelocity() {
+    CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+    
+    // Get the electron lifetime.
+    CP::THandle<CP::TRealDatum> stepVect
+        = ev->Get<CP::TRealDatum>("~/truth/elecSimple/argon");
+    if (!stepVect) return 1.6*unit::millimeter/unit::microsecond;
+    return (*stepVect)[0];
+}
