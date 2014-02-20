@@ -59,6 +59,10 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
         sampleSquared += v*j*j;
         ++samples;
     }
+
+    // Protect against empty regions.
+    if (charge<1) return CP::THandle<CP::THit>();
+
     sample /= charge;
     sampleSquared /= charge;
 
@@ -286,6 +290,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                                                    sampleSigma,
                                                    i, j,
                                                    (split > 1));
+            if (!newHit) continue;
             hits.push_back(newHit);
         }            
     }
