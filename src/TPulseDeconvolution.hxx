@@ -76,8 +76,13 @@ private:
     /// (clusterCalib.smoothing.wire + 1).
     int fSmoothingWindow;
 
-    /// Hold the cut for random fluctuations.
+    /// Hold the cut for random fluctuations.  This is in units of the RMS of
+    /// the sample-to-sample fluctuations.
     double fFluctuationCut;
+
+    /// Hold the cut on how high the baseline can get.  This is in units of
+    /// the baseline standard deviation relative to the median baseline.
+    double fBaselineCut;
 
     /// When determining where the peaks probably are so they can be excluded
     /// from the baseline estimate, this is the number of samples that have to
@@ -86,7 +91,7 @@ private:
 
     /// The number of samples that have to be within fFluctuationCut for a
     /// region to be considered "coherent".
-    double fCoherenceFraction;
+    double fCoherenceCut;
 
     /// The baseline sigma relative to the average baseline.
     double fBaselineSigma;

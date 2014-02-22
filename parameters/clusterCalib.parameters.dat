@@ -42,3 +42,24 @@ Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
 
 < clusterCalib.peakSearch.rmsLimit = 4000 ns >
+
+The pulse deconvolution will remove the baseline from the pulse.  The base
+line is determined by runs of coherenceZone samples with fluctuations of
+less that sigma*fluctuationCut.  The sigma is the sigma of the
+sample-to-sample variations.  
+
+< clusterCalib.deconvolution.coherenceZone = 10 >
+< clusterCalib.deconvolution.fluctuationCut = 3 >
+
+The number of samples inside the coherence zone that vary less than
+fluctuationCut.  If the number is less than this cut, the region is not
+considered baseline.
+
+< clusterCalib.deconvolution.coherenceCut = 10 >
+
+The baseline can follow a random walk, but if the estimate gets more than
+the this cut times the sigma of the baseline then assume it's actually
+signal.
+
+< clusterCalib.deconvolution.baselineCut = 5 >
+
