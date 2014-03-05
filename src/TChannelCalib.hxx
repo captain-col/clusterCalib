@@ -21,15 +21,20 @@ public:
     TChannelCalib();
     ~TChannelCalib();
 
-    /// Get the gain constants for a channel.  The second parameter is the
-    /// order of the constant.  Normally, order 0 is the pedestal, order 1 is
-    /// linear, order 2 is quadratic, etc.
+    /// Get the amplifier gain constants for a channel.  The second parameter
+    /// is the order of the constant.  Normally, order 0 is the pedestal,
+    /// order 1 is linear, order 2 is quadratic, etc.
     double GetGainConstant(CP::TChannelId id, int order=1);
 
     /// Get the time constants for a channel.  The second parameter is the
     /// order of the constant.  Normally, order 0 is the pedestal, order 1 is
     /// linear, order 2 is quadratic, etc.
     double GetTimeConstant(CP::TChannelId id, int order=1);
+
+    /// Get the digitizer slope of ADC/(input voltage).  The second parameter
+    /// is the order of the constant.  Normally, order 0 is the offset (always
+    /// zero), order 1 is linear, order 2 is quadratic, etc.
+    double GetDigitizerConstant(CP::TChannelId id, int order=1);
 
     /// Get the electron lifetime.
     double GetElectronLifetime();

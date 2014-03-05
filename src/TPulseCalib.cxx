@@ -27,6 +27,7 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
     double digitStep = calib.GetTimeConstant(chan,1);
     double pedestal = calib.GetGainConstant(chan,0);
     double gain = calib.GetGainConstant(chan,1);
+    double slope = calib.GetDigitizerConstant(chan,1);
 
     double startTime = digitStep*pulse->GetFirstSample() + timeOffset;
     double stopTime 
@@ -34,7 +35,7 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
         + timeOffset;
     CP::TCalibPulseDigit::Vector samples(pulse->GetSampleCount());
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
-        samples[i] = 1.0*(pulse->GetSample(i)-pedestal)/gain;
+        samples[i] = 1.0*(pulse->GetSample(i)-pedestal)/gain/slope;
     }
     return new CP::TCalibPulseDigit(digit,startTime,stopTime,samples);
 }

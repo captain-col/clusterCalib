@@ -139,7 +139,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                    ("Source for " 
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
-                   0.0, 1.0*digit.GetSampleCount());
+                   digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         sourceHist->SetBinContent(i+1,fSource[i]-1000.0);
     }
@@ -170,7 +170,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                        ("Peaks found for " 
                         + digit.GetChannelId().AsString()).c_str(),
                        digit.GetSampleCount(),
-                       0.0, 1.0*digit.GetSampleCount());
+                       digit.GetFirstSample(), digit.GetLastSample());
         for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
             destHist->SetBinContent(i+1,fDest[i]);
         }

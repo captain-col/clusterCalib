@@ -162,6 +162,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* offsetHist 
@@ -169,7 +170,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
                    ("Deconvoluted signal before baseline removal for " 
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
-                   0.0, 1.0*digit.GetSampleCount());
+                   digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         offsetHist->SetBinContent(i+1,digit.GetSample(i));
     }
@@ -335,6 +336,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         baseline[i] = interp;
     }
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* bkgHist 
@@ -342,7 +344,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
                    ("Estimated baseline for " 
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
-                   0.0, 1.0*digit.GetSampleCount());
+                   digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         bkgHist->SetBinContent(i+1,baseline[i]);
     }

@@ -19,6 +19,12 @@ public:
     /// hits that are found are appended to output THitSelection.
     void operator () (CP::THitSelection& output, 
                       const CP::TCalibPulseDigit& input);
+
+private:
+    
+    /// The threshold for defining a hit.
+    double fThreshold;
+
 };
 
 #endif

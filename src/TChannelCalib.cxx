@@ -89,6 +89,38 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
     return 0.0;
 }
 
+double CP::TChannelCalib::GetDigitizerConstant(CP::TChannelId id, int order) {
+    if (id.IsMCChannel()) {
+        TMCChannelId mc(id);
+
+        int index = -1;
+        if (mc.GetType() == 0) index = mc.GetSequence();
+        else if (mc.GetType() == 1) index = 3;
+        else {
+            CaptError("Unknown channel: " << id);
+            throw CP::EChannelCalibUnknownType();
+        }
+            
+        CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+        
+        if (order == 0) {
+            return 0.0;
+        }
+        else if (order == 1) {
+            // Get the digitizer slope
+            CP::THandle<CP::TRealDatum> slopeVect
+                = ev->Get<CP::TRealDatum>("~/truth/elecSimple/slope");
+            return (*slopeVect)[index];
+        }
+
+        return 0.0;
+    }
+
+    CaptError("Unknown channel: " << id);
+    throw EChannelCalibUnknownType();
+    return 0.0;
+}
+
 double CP::TChannelCalib::GetElectronLifetime() {
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
     

@@ -83,17 +83,17 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
         CP::TDigitProxy proxy(*pmt,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-        makePMTHits(*pmtHits,*deconv);
+        makePMTHits(*pmtHits,*calib);
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
             = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
                        ("Calibration for " 
                         + calib->GetChannelId().AsString()).c_str(),
-                       fSampleCount,
-                       0.0, 1*fSampleCount);
+                       calib->GetSampleCount(),
+                       calib->GetFirstSample(), calib->GetLastSample());
         for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
             calibHist->SetBinContent(i+1,calib->GetSample(i));
         }
@@ -107,7 +107,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                        ("Deconvolution for " 
                         + deconv->GetChannelId().AsString()).c_str(),
                        deconv->GetSampleCount(),
-                       0.0, 1.*deconv->GetSampleCount());
+                       deconv->GetFirstSample(), dconv->GetLastSample());
         for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
             deconvHist->SetBinContent(i+1,deconv->GetSample(i));
         }
@@ -166,8 +166,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
                        ("Calibration for " 
                         + calib->GetChannelId().AsString()).c_str(),
-                       fSampleCount,
-                       0.0, 1*fSampleCount);
+                       calib->GetSampleCount(),
+                       calib->GetFirstSample(), calib->GetLastSample());
         for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
             calibHist->SetBinContent(i+1,calib->GetSample(i));
         }
@@ -180,7 +180,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                        ("Deconvolution for " 
                         + deconv->GetChannelId().AsString()).c_str(),
                        deconv->GetSampleCount(),
-                       0.0, 1.*deconv->GetSampleCount());
+                       deconv->GetFirstSample(), deconv->GetLastSample());
         for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
             deconvHist->SetBinContent(i+1,deconv->GetSample(i));
         }
