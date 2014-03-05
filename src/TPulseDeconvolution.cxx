@@ -162,7 +162,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* offsetHist 
@@ -336,7 +335,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         baseline[i] = interp;
     }
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* bkgHist 

@@ -85,7 +85,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
         makePMTHits(*pmtHits,*calib);
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
