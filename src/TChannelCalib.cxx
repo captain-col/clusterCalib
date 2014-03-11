@@ -13,6 +13,29 @@ CP::TChannelCalib::TChannelCalib() { }
 
 CP::TChannelCalib::~TChannelCalib() { } 
 
+bool CP::TChannelCalib::IsBipolarSignal(CP::TChannelId id) {
+    if (id.IsMCChannel()) {
+        TMCChannelId mc(id);
+
+        int index = -1;
+        if (mc.GetType() == 0) index = mc.GetSequence();
+        else if (mc.GetType() == 1) index = 3;
+        else {
+            CaptError("Unknown channel: " << id);
+            throw CP::EChannelCalibUnknownType();
+        }
+            
+        switch (index) {
+        case 1: case 2: return true;
+        default: return false;
+        }
+    }
+
+    CaptError("Unknown channel: " << id);
+    throw EChannelCalibUnknownType();
+    return false;
+}
+
 double CP::TChannelCalib::GetGainConstant(CP::TChannelId id, int order) {
     if (id.IsMCChannel()) {
         TMCChannelId mc(id);

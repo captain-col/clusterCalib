@@ -21,6 +21,10 @@ public:
     TChannelCalib();
     ~TChannelCalib();
 
+    /// This returns true if the signal is a bipolar signal.  The collection
+    /// wires and PMTs are unipolar.  The induction wires are bipolar.
+    bool IsBipolarSignal(CP::TChannelId id);
+
     /// Get the amplifier gain constants for a channel.  The second parameter
     /// is the order of the constant.  Normally, order 0 is the pedestal,
     /// order 1 is linear, order 2 is quadratic, etc.
