@@ -35,8 +35,8 @@ they are consistent with a real peak.  These parameters control the peak
 acceptance.  The charge is the charge value at the peak.  The deconvolution
 is the estimated power from the SearchHighRes() output.
 
-< clusterCalib.peakSearch.charge = 500 >
-< clusterCalib.peakSearch.deconvolution = 300 >
+< clusterCalib.peakSearch.charge = 1000 >
+< clusterCalib.peakSearch.deconvolution = 4000 >
 
 Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.

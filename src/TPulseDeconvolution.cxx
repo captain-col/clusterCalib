@@ -198,12 +198,23 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // the normal distribution.
     fSampleSigma = diff[0.52*digit.GetSampleCount()];
 
+    // Define a cut for the maximum change between two samples.  If the
+    // difference is greater than this, then the samples are not "coherent".
     double deltaCut = fSampleSigma*fFluctuationCut;
 
+    // define a maximum separation between the sample relative to the median
+    // sample.  If it's more than this, then the sample is not baseline.  This
+    // is one sided.
     double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
 
-    double driftCut 
-        = fFluctuationCut * fSampleSigma * std::sqrt(fCoherenceZone);
+    // Define a cut for the maximum drift in one direction within a coherence
+    // zone.  If the drift is more than this, then the region is not baseline.
+    TChannelCalib channelCalib;
+    double driftSigma = fSampleSigma;
+    if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
+        driftSigma  *= std::sqrt(fCoherenceZone);
+    }
+    double driftCut = fFluctuationCut * driftSigma;
 
     // Refill the differences...
     diff[0] = 0;
@@ -216,6 +227,38 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     std::vector<double> baseline;
     baseline.resize(digit.GetSampleCount());
 
+    std::vector<double> drift;
+    drift.resize(digit.GetSampleCount());
+
+    // Fill the drifts for the samples.
+    for (std::size_t i=0; i<drift.size(); ++i) {
+        // Find the start of the coherence zone.
+        int startZone = i - fCoherenceZone;
+
+        if (startZone < 0) startZone = 0;
+
+        double deltaSample = 0.0;
+        for (int j = startZone; j<i; ++j) {
+            deltaSample = std::max(deltaSample,
+                                   std::abs(digit.GetSample(i)
+                                            -digit.GetSample(j)));
+        }
+        drift[i] = deltaSample;
+    }
+
+    for (std::size_t i=drift.size()-1; 0 < i; --i) {
+        // Find the start of the coherence zone.
+        std::size_t startZone = i + fCoherenceZone;
+
+        double deltaSample = 0.0;
+        for (int j = i+1; j<=startZone; ++j) {
+            deltaSample = std::max(deltaSample,
+                                   std::abs(digit.GetSample(i)
+                                            -digit.GetSample(j)));
+        }
+        drift[i] = std::max(deltaSample, drift[i]);
+    }
+
     // First look forward through the samples.
     int coh = 0;
     for (std::size_t i=0; i < diff.size(); ++i) {
@@ -223,7 +266,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         int startZone = i - fCoherenceZone;
 
         // Find the number of differences in the coherence zone that are less
-        // than the difference cut.
+        // than the difference cut.  This is a running sum that increments the
+        // count if the new bin is less than the cut, and decrements it when
+        // the bin leaves the zone.
         if (diff[i] < deltaCut) coh += 1.0;
         if (0 <= startZone && diff[startZone] < deltaCut) coh -= 1.0;
 
@@ -240,11 +285,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
-        // Don't consider regions where the signal is drifting in one
-        // direction.
-        double deltaSample = std::abs(digit.GetSample(i)
-                                      -digit.GetSample(startZone));
-        if (deltaSample > driftCut) {
+        if (drift[i] > driftCut) {
             continue;
         }
         
@@ -257,6 +298,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         int offset = 0.5*fCoherenceZone;
         baseline[i-offset] = digit.GetSample(i-offset);
     }
+
 
     coh = 0;
     // Now look backwards through the differences.
@@ -286,11 +328,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
-        // Don't consider regions where the signal is drifting in one
-        // direction.
-        double deltaSample = std::abs(digit.GetSample(i)
-                                      -digit.GetSample(startZone));
-        if (deltaSample > driftCut) {
+        if (drift[i] > driftCut) {
             continue;
         }
         
@@ -354,9 +392,23 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         = new TH1F((digit.GetChannelId().AsString()+"-diff").c_str(),
                    ("Differences from previous sample for " 
                     + digit.GetChannelId().AsString()).c_str(),
-                   50, 0.0, 200.0);
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        diffHist->Fill(diff[i]);
+        diffHist->SetBinContent(i+1,diff[i]/fSampleSigma);
+    }
+#endif
+        
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* driftHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-drift").c_str(),
+                   ("Drift for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        driftHist->SetBinContent(i+1, drift[i]/driftSigma);
     }
 #endif
         
