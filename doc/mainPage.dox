@@ -6,6 +6,8 @@ This takes digitized pulses and translates them into time and charge hits
 for each wire and PMT.  One of the main distinctions between this and the
 reconstruction is that the calibration is heavily dependent on time-varying
 values stored in the data base.  As much as possible, the reconstruction
-code is insensitive to time variations in the data.
+code is insensitive to time variations in the data.  The main executable is
+CLUSTERCALIB.exe.  It takes options that will control how the calibration
+is applied (run the command to see the usage message).
 
 */

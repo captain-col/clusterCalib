@@ -8,6 +8,7 @@ public:
     TClusterCalibLoop() {
         fClusterCalib = NULL;
         fSavePulses = true;
+        fApplyDriftCalibration = true;
     }
 
     virtual ~TClusterCalibLoop() {};
@@ -15,12 +16,21 @@ public:
     void Usage(void) {
         std::cout << "    -O pulse     Save the calibrated pulses"
                   << std::endl;
+        std::cout << "    -O nopulse   Don't save the calibrated pulses"
+                  << std::endl;
+        std::cout << "    -O drift     Apply the drift calibration (default)"
+                  << std::endl;
+        std::cout << "    -O nodrift   Don't apply the drift calibration"
+                  << std::endl;
     }
 
     virtual bool SetOption(std::string option,std::string value="") {
         if (value != "") return false;
         if (option == "nopulse") fSavePulses = false;
         else if (option == "pulse") fSavePulses = true;
+        else if (option == "nodrift") fApplyDriftCalibration = false;
+        else if (option == "drift") fApplyDriftCalibration = true;
+        else return false;
         return true;
     }
 
@@ -30,6 +40,7 @@ public:
 
         // Set the action for the calibrated pulse digits.
         fClusterCalib->SaveCalibratedPulses(fSavePulses);
+        fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
 
         // Run the simulation on the event.
         (*fClusterCalib)(event);
@@ -42,6 +53,7 @@ private:
     CP::TClusterCalib* fClusterCalib;
 
     bool fSavePulses;
+    bool fApplyDriftCalibration;
 };
 
 int main(int argc, char **argv) {

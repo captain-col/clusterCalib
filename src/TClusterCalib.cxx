@@ -98,22 +98,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
-#ifdef  FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-        std::cout << deconv->GetChannelId().AsString() << std::endl;
-        TH1F* deconvHist 
-            = new TH1F((deconv->GetChannelId().AsString()+"-deconv").c_str(),
-                       ("Deconvolution for " 
-                        + deconv->GetChannelId().AsString()).c_str(),
-                       deconv->GetSampleCount(),
-                       deconv->GetFirstSample(), dconv->GetLastSample());
-        for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
-            deconvHist->SetBinContent(i+1,deconv->GetSample(i));
-        }
-        TSpectrum spectrum;
-        TSpectrum::SetDeconIterations(10);
-        spectrum.Search(deconvHist,2.0,"",0.05);
-#endif
     }
     double t0 = 1E+50;
     if (pmtHits->size() > 0) {
@@ -172,11 +156,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
-#ifdef  FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 
             = new TH1F((deconv->GetChannelId().AsString()+"-deconv").c_str(),
-                       ("Deconvolution for " 
+                       ("Final deconvolution for " 
                         + deconv->GetChannelId().AsString()).c_str(),
                        deconv->GetSampleCount(),
                        deconv->GetFirstSample(), deconv->GetLastSample());
@@ -191,9 +175,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    double maxCharge = 50000;
+    double maxCharge = 50;
     if (!gClusterCalibXCharge) {
         gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
                                         "Calibrated Charge for the X wires",
@@ -220,7 +205,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         case 2: hist = gClusterCalibUCharge; break;
         default: std::exit(1);
         }
-        hist->Fill((*h)->GetCharge());
+        hist->Fill((*h)->GetCharge()/(*h)->GetTimeRMS());
     }
 #endif
 
@@ -274,30 +259,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
     
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-    double maxCharge = 500;
-    if (!gClusterCalibXCharge) {
-        gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
-                                        "Calibrated Charge for the X wires",
-                                        100, 0.0, maxCharge);
-    }
-    if (!gClusterCalibUCharge) {
-        gClusterCalibUCharge = new TH1F("clusterCalibUCharge",
-                                        "Calibrated Charge for the U wires",
-                                        100, 0.0, maxCharge);
-    }
-    if (!gClusterCalibVCharge) {
-        gClusterCalibVCharge = new TH1F("clusterCalibVCharge",
-                                        "Calibrated Charge for the V wires",
-                                        100, 0.0, maxCharge);
-    }
-
-    gClusterCalibXCharge->Fill(xWireCharge/29300.0);
-    gClusterCalibVCharge->Fill(vWireCharge/29300.0);
-    gClusterCalibUCharge->Fill(uWireCharge/29300.0);
-#endif
-
     if (driftHits->size() > 0) {
         // Add the drift hits to the output.
         CP::THandle<CP::TDataVector> hits
@@ -305,6 +266,5 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         hits->AddDatum(driftHits.release());
     }
 
-    
     return true;
 }

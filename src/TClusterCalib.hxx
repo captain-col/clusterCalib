@@ -15,7 +15,10 @@ namespace CP {
 /// This is a very simplistic electronics simulation.  It is not intended for
 /// doing physic, but does capture enough of the behavior to develop software.
 /// On output, the hits for the PMT are saved in the "pmt" hit selection, and
-/// the wire hits are contained in "drift".
+/// the wire hits are contained in "drift".  This has flags to control the
+/// behavior.  The most important is the ApplyDriftCalibration flag which is
+/// true for normal data, but can be set to false when calculating the
+/// electron lifetime. 
 class CP::TClusterCalib {
 public:
     typedef std::vector<double> DoubleVector;
@@ -28,7 +31,16 @@ public:
     void SaveCalibratedPulses(bool value = true) {
         fSaveCalibratedPulses = value;
     }
-    
+
+    /// Set a flag to correct the electron drift.  If this is true, then the
+    /// normal calibration is applied, but if it's false, then the drift
+    /// correction is not applied and the electron lifetime can be calculated.
+    /// The normal setting is true.  This is false when running the drift
+    /// calibration.
+    void ApplyDriftCalibration(bool value = true) {
+        fApplyDriftCalibration = value;
+    }
+
 private:
     /// The maximum pulse length (in time).  The fft (time sequence) length is
     /// the pulse length plus the response length.  The exact value isn't
@@ -62,6 +74,11 @@ private:
     /// A flag that the calibrated pulse digits should be saved on the output.
     /// This is the input into the peak finding.
     bool fSaveCalibratedPulses;
+
+    /// A flag to determine if the electron lifetime calibration is applied.
+    /// This is normally true, and the false value is reserved for calculating
+    /// the drift calibration constant.
+    bool fApplyDriftCalibration;
 
 };
 #endif
