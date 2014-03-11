@@ -17,7 +17,8 @@
 #include <vector>
 #include <algorithm>
 
-CP::TWireMakeHits::TWireMakeHits() {
+CP::TWireMakeHits::TWireMakeHits(bool correctLifetime) {
+    fCorrectElectronLifetime = correctLifetime;
     fNSource = 0;
     fSource = NULL;
     fDest = NULL;
@@ -74,9 +75,9 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     
     // If this is from a pulse that is being split, then the RMS is defined by
     // the half width of the split part of the pulse.
-    if (split) {
-        rms = 0.5*step*(endIndex-beginIndex);
-    }
+    // if (split) {
+    //     rms = 0.5*step*(endIndex-beginIndex);
+    // }
 
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.
@@ -94,7 +95,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     // Correct for attenuation
     TChannelCalib calib;
     double deltaT = time - t0;
-    if (deltaT > 0.0) {
+    if (fCorrectElectronLifetime && deltaT > 0.0) {
         charge *= std::exp(deltaT/calib.GetElectronLifetime());
     }
 
