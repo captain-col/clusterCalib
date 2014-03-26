@@ -43,8 +43,19 @@ public:
     /// Get the electron lifetime.
     double GetElectronLifetime();
 
-    /// Get the electron drift velocity.
+    /// Get the electron drift velocity.  This can be calculated by disabling
+    /// the drift calibration for CLUSTERCALIB.exe using the -O no-drift flag.
+    /// The average X charge vs time can then be fit to determine the drift
+    /// lifetime.  
     double GetElectronDriftVelocity();
+
+    /// Get the wire collection efficiency.  This can be calculated by
+    /// disabling the efficiency calibration for CLUSTERCALIB.exe using the -O
+    /// no-efficiency flag.  The collection efficiency is then the ratio
+    /// between the U/X and V/X ratios.  This can also include wire-to-wire
+    /// differences, but those are not calculated with CLUSTERCALIB.exe.
+    double GetCollectionEfficiency(CP::TChannelId id);
+
 };
 
 #endif

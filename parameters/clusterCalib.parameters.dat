@@ -42,7 +42,7 @@ applying the deconvolution.  The value controls the number of "side-band"
 samples to use when smoothing a particular sample.  A value of zero means
 no smoothing.
 
-< clusterCalib.deconvolution.smoothing = 5 >
+< clusterCalib.deconvolution.smoothing = 2 >
 
 The pulse deconvolution will remove the baseline from the pulse.  The base
 line is determined by runs of coherenceZone samples with fluctuations of
@@ -69,4 +69,11 @@ integral of a 1 pe pulse is 1.0, so the peak is typically around 0.05, and
 the noise level is around 0.005.
 
 < clusterCalib.pmt.threshold = 0.02 >
+
+The collection efficiency for each of the types of wires in the MC.  These
+were calculated using CLUSTERCALIB.exe -O no-efficiency.
+
+< clusterCalib.mc.wire.collection.x = 1.0 > 
+< clusterCalib.mc.wire.collection.v = 4.29 > 
+< clusterCalib.mc.wire.collection.u = 4.29 > 
 

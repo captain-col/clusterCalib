@@ -8,6 +8,7 @@
 #include <TChannelId.hxx>
 #include <TMCChannelId.hxx>
 #include <HEPUnits.hxx>
+#include <TRuntimeParameters.hxx>
 
 CP::TChannelCalib::TChannelCalib() { }
 
@@ -163,3 +164,42 @@ double CP::TChannelCalib::GetElectronDriftVelocity() {
     if (!stepVect) return 1.6*unit::millimeter/unit::microsecond;
     return (*stepVect)[0];
 }
+
+double CP::TChannelCalib::GetCollectionEfficiency(CP::TChannelId id) {
+    if (id.IsMCChannel()) {
+        TMCChannelId mc(id);
+
+        int index = -1;
+        if (mc.GetType() == 0) index = mc.GetSequence();
+        else if (mc.GetType() == 1) return 1.0;
+        else {
+            CaptError("Unknown channel: " << id);
+            throw CP::EChannelCalibUnknownType();
+        }
+            
+        if (index == 0) {
+            // A X channel.
+            double eff = CP::TRuntimeParameters::Get().GetParameterD(
+                "clusterCalib.mc.wire.collection.x");
+            return eff;
+        }
+        else if (index == 1) {
+            // A V channel.
+            double eff = CP::TRuntimeParameters::Get().GetParameterD(
+                "clusterCalib.mc.wire.collection.v");
+            return eff;
+        }
+        else if (index == 2) {
+            // A U channel.
+            double eff = CP::TRuntimeParameters::Get().GetParameterD(
+                "clusterCalib.mc.wire.collection.u");
+            return eff;
+        }
+    }
+
+    CaptError("Unknown channel: " << id);
+    throw EChannelCalibUnknownType();
+    return 0.0;
+
+}
+
