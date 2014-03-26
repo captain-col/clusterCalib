@@ -41,6 +41,15 @@ public:
         fApplyDriftCalibration = value;
     }
 
+    /// Set a flag to correct the wire collection efficiency.  If this is
+    /// true, then the normal calibration is applied, but if it's false, then
+    /// the collection efficiency correction is not applied.  The normal
+    /// setting is true.  This is false when running the collection efficiency
+    /// calibration is being calculated.
+    void ApplyEfficiencyCalibration(bool value = true) {
+        fApplyEfficiencyCalibration = value;
+    }
+
 private:
     /// The maximum pulse length (in time).  The fft (time sequence) length is
     /// the pulse length plus the response length.  The exact value isn't
@@ -79,6 +88,11 @@ private:
     /// This is normally true, and the false value is reserved for calculating
     /// the drift calibration constant.
     bool fApplyDriftCalibration;
+
+    /// A flag to determine if the efficiency calibration is applied.
+    /// This is normally true, and the false value is reserved for calculating
+    /// calibration constant.
+    bool fApplyEfficiencyCalibration;
 
 };
 #endif

@@ -18,8 +18,10 @@
 #include <algorithm>
 #include <memory>
 
-CP::TWireMakeHits::TWireMakeHits(bool correctLifetime) {
+CP::TWireMakeHits::TWireMakeHits(bool correctLifetime, 
+                                 bool correctEfficiency) {
     fCorrectElectronLifetime = correctLifetime;
+    fCorrectCollectionEfficiency = correctEfficiency;
     fNSource = 0;
     fSource = NULL;
     fDest = NULL;
@@ -105,8 +107,19 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
         chargeUnc = 1*unit::coulomb;
     }
 
-    // Correct for attenuation
     TChannelCalib calib;
+
+    // Correct for the wire collection efficiency.  Before this correction,
+    // the wire is calibrated in terms of the charged collected (or induced)
+    // on the wire.  After this correction, the wire is calibrated in terms of
+    // "sensed" electrons which is the number of electrons passing in the
+    // vicinity of the wire.  For the collection wires, the measured electrons
+    // and sensed electrons are the same thing.
+    if (fCorrectCollectionEfficiency) {
+        charge /= calib.GetCollectionEfficiency(digit.GetChannelId());
+    }
+
+    // Correct for the electron drift lifetime.  
     double deltaT = time - t0;
     if (fCorrectElectronLifetime && deltaT > 0.0) {
         charge *= std::exp(deltaT/calib.GetElectronLifetime());

@@ -42,7 +42,8 @@ CP::TClusterCalib::TClusterCalib() {
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
     fSaveCalibratedPulses = true;
-    fApplyDriftCalibration = false;
+    fApplyDriftCalibration = true;
+    fApplyEfficiencyCalibration = true;
 }
 
 CP::TClusterCalib::~TClusterCalib() {}
@@ -110,7 +111,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration);
+    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration, 
+                                   fApplyEfficiencyCalibration);
 
     // Make a container to hold the deconvoluted digits.
     if (fSaveCalibratedPulses) {
@@ -288,15 +290,34 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     xu /= std::sqrt(xWireUnc*xWireUnc + uWireUnc*uWireUnc);
     double vu = (vWireCharge-uWireCharge);
     vu /= std::sqrt(vWireUnc*vWireUnc + uWireUnc*uWireUnc);
-    CaptNamedInfo("TClusterCalib",
-                  "X: "<< unit::AsString(xWireCharge,xWireUnc,"pe")
-                  << "   V: " << unit::AsString(vWireCharge,vWireUnc,"pe")
-                  << "   U: " << unit::AsString(uWireCharge,uWireUnc,"pe"));
+    CaptLog("X: "<< unit::AsString(xWireCharge,xWireUnc,"charge")
+            << "   V: " << unit::AsString(vWireCharge,vWireUnc,"charge")
+            << "   U: " << unit::AsString(uWireCharge,uWireUnc,"charge"));
     CaptNamedInfo("TClusterCalib",
                   "X-V/sigma: " << xv
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
     
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    static TH1F* gClusterCalibVRatio = NULL;
+    static TH1F* gClusterCalibURatio = NULL;
+    if (!gClusterCalibVRatio) {
+        gClusterCalibVRatio = new TH1F("clusterCalibVRatio",
+                                      "Ratio of V charge to X charge",
+                                       100,0.0,10);
+        gClusterCalibURatio = new TH1F("clusterCalibURatio",
+                                      "Ratio of U charge to X charge",
+                                       100,0.0,10);
+
+    }
+    if (xWireCharge > 0) {
+        gClusterCalibVRatio->Fill(vWireCharge/xWireCharge);
+        gClusterCalibURatio->Fill(uWireCharge/xWireCharge);
+    }
+#endif
+
     if (driftHits->size() > 0) {
         // Add the drift hits to the output.
         CP::THandle<CP::TDataVector> hits
