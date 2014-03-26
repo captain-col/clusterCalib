@@ -16,6 +16,7 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <memory>
 
 CP::TWireMakeHits::TWireMakeHits(bool correctLifetime) {
     fCorrectElectronLifetime = correctLifetime;
@@ -55,6 +56,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     // the peak.  The average is charge weighted.
     for (int j=beginIndex; j<endIndex; ++j) {
         double v = digit.GetSample(j);
+        if (v <= 0) continue;
         charge += v;
         sample += v*j;
         sampleSquared += v*j*j;
@@ -91,6 +93,17 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
+
+    if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
+        CaptError("Time uncertainty for " << digit.GetChannelId() 
+                  << " is not positive and finite ");
+        timeUnc = 1*unit::second;
+    }
+    if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
+        CaptError("Charge uncertainty for " << digit.GetChannelId() 
+                  << " is not positive and finite" << samples);
+        chargeUnc = 1*unit::coulomb;
+    }
 
     // Correct for attenuation
     TChannelCalib calib;
@@ -129,6 +142,11 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     
     // Fill the spectrum.
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        double p = digit.GetSample(i);
+        if (!std::isfinite(p)) {
+            CaptError("Channel " << digit.GetChannelId() 
+                      << " w/ invalid sample " << i);
+        }
         fSource[i] = digit.GetSample(i) + 1000.0;
         fDest[i] = 0.0;
     }
@@ -146,7 +164,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
 #endif
         
-    TSpectrum* spectrum = new TSpectrum(1000);
+    std::auto_ptr<TSpectrum> spectrum(new TSpectrum(fNSource));
 
     // Set the parameters to use for the peak search.  These should be in the
     // parameters file, but the search isn't extremely sensitive to them.  The

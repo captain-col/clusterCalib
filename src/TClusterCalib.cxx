@@ -15,15 +15,11 @@
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>
+#include <TH2F.h>
+#include <TProfile.h>
 #include <TSpectrum.h>
 
 #include <memory>
-
-namespace {
-    TH1F* gClusterCalibXCharge = NULL;
-    TH1F* gClusterCalibVCharge = NULL;
-    TH1F* gClusterCalibUCharge = NULL;
-}
 
 CP::TClusterCalib::TClusterCalib() {
     fDigitStep 
@@ -46,6 +42,7 @@ CP::TClusterCalib::TClusterCalib() {
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
     fSaveCalibratedPulses = true;
+    fApplyDriftCalibration = false;
 }
 
 CP::TClusterCalib::~TClusterCalib() {}
@@ -113,7 +110,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-    CP::TWireMakeHits makeWireHits;
+    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration);
 
     // Make a container to hold the deconvoluted digits.
     if (fSaveCalibratedPulses) {
@@ -138,11 +135,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-        makeWireHits(*driftHits,*deconv,t0,
-                     fDeconvolution->GetBaselineSigma(),
-                     fDeconvolution->GetSampleSigma());
-
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
@@ -156,6 +148,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
+        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 
@@ -167,10 +160,14 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
             deconvHist->SetBinContent(i+1,deconv->GetSample(i));
         }
-        TSpectrum spectrum;
-        TSpectrum::SetDeconIterations(30);
-        spectrum.Search(deconvHist,2.0,"",0.01);
+        // TSpectrum spectrum;
+        // TSpectrum::SetDeconIterations(30);
+        // spectrum.Search(deconvHist,2.0,"",0.01);
 #endif
+
+        makeWireHits(*driftHits,*deconv,t0,
+                     fDeconvolution->GetBaselineSigma(),
+                     fDeconvolution->GetSampleSigma());
 
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
@@ -178,7 +175,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    double maxCharge = 50;
+    static TH1F* gClusterCalibXCharge = NULL;
+    static TH1F* gClusterCalibVCharge = NULL;
+    static TH1F* gClusterCalibUCharge = NULL;
+    double maxCharge = 50*unit::fC;
     if (!gClusterCalibXCharge) {
         gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
                                         "Calibrated Charge for the X wires",
@@ -205,7 +205,45 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         case 2: hist = gClusterCalibUCharge; break;
         default: std::exit(1);
         }
-        hist->Fill((*h)->GetCharge()/(*h)->GetTimeRMS());
+        hist->Fill((*h)->GetCharge());
+    }
+#endif
+
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    static TH2F* gClusterCalibXTime = NULL;
+    static TProfile* gClusterCalibXTimeProfile = NULL;
+    if (!gClusterCalibXTime) {
+        gClusterCalibXTime = new TH2F("clusterCalibXTime",
+                                      "Charge of X hits vs Time",
+                                      100,0.0,1*unit::ms,
+                                      100,0.0,50000);
+        gClusterCalibXTimeProfile = new TProfile("clusterCalibXTimeProfile",
+                                      "Mean Charge of X hits vs Time",
+                                      100,0.0,1*unit::ms,
+                                      5000.0,50000.0);
+    }
+    for (CP::THitSelection::iterator h = driftHits->begin();
+         h != driftHits->end(); ++h) {
+        TGeometryId id = (*h)->GetGeomId();
+        if (CP::GeomId::Captain::GetWirePlane(id) != 0) continue;
+        int neighbors = 0;
+        for (CP::THitSelection::iterator i = driftHits->begin();
+             i != driftHits->end(); ++i) {
+            TGeometryId wid = (*i)->GetGeomId();
+            if (CP::GeomId::Captain::GetWirePlane(wid) != 0) continue;
+            if (wid == id) continue;
+            int dWire = CP::GeomId::Captain::GetWireNumber(id)
+                - CP::GeomId::Captain::GetWireNumber(wid);
+            if (std::abs(dWire) > 1) continue;
+            double delta = (*h)->GetTime() - (*i)->GetTime();
+            if (std::abs(delta) > 2*unit::microsecond) continue;
+            ++neighbors;
+        }
+        if (neighbors < 1) continue;
+        gClusterCalibXTime->Fill((*h)->GetTime(),(*h)->GetCharge());
+        gClusterCalibXTimeProfile->Fill((*h)->GetTime(),(*h)->GetCharge());
     }
 #endif
 
