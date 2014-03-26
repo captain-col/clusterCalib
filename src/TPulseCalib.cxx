@@ -35,7 +35,12 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
         + timeOffset;
     CP::TCalibPulseDigit::Vector samples(pulse->GetSampleCount());
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
-        samples[i] = 1.0*(pulse->GetSample(i)-pedestal)/gain/slope;
+        double p = 1.0*(pulse->GetSample(i)-pedestal)/gain/slope;
+        samples[i] = p;
+        if (!std::isfinite(p)) {
+            CaptError("Channel " << pulse->GetChannelId() 
+                      << " w/ invalid sample " << i);
+        }
     }
     return new CP::TCalibPulseDigit(digit,startTime,stopTime,samples);
 }
