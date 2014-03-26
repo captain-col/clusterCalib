@@ -83,17 +83,21 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
     fMustRecalculate = false;
 
     // Fill the response function.  This explicitly normalizes.
-    double sum = 0.0;
+    double normalization = 0.0;
     for (std::size_t i=0; i<fResponse.size(); ++i) {
         double arg = fSampleTime*(1.0*i+0.5)/fPeakingTime;
         double v = (arg<40)? arg*std::exp(-arg): 0.0;
         fResponse[i] = v;
-        sum += v;
+#ifdef UNIT_NORMALIZATION
+        normalization += v;
+#else
+        normalization = std::max(normalization,v);
+#endif
     }
-    if (sum < 1E-20) return false;
+    if (normalization < 1E-20) return false;
     for (std::vector<Response>::iterator r = fResponse.begin();
          r != fResponse.end(); ++r) {
-        (*r) /= sum;
+        (*r) /= normalization;
     }
 
     // Calculate the FFT of the response 
