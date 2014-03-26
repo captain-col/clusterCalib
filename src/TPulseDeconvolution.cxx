@@ -49,7 +49,7 @@ void CP::TPulseDeconvolution::Initialize() {
     CaptLog("Initialize pulse deconvolution to " << nSize << " entries");
     
     if (fFFT) delete fFFT;
-    fFFT = TVirtualFFT::FFT(1, &nSize, "R2C ES K");
+    fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
     if (nSize != fSampleCount) {
         CaptError("Invalid length for FFT");
         CaptError("     original length: " << fSampleCount);
@@ -57,7 +57,7 @@ void CP::TPulseDeconvolution::Initialize() {
     }
 
     if (fInverseFFT) delete fInverseFFT;
-    fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R ES K");
+    fInverseFFT = TVirtualFFT::FFT(1, &nSize, "C2R M K");
     if (nSize != fSampleCount) {
         CaptError("Invalid length for inverse FFT");
         CaptError("     original length: " << fSampleCount);
