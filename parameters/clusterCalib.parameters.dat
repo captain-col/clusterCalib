@@ -22,12 +22,6 @@ There is a trade off since smaller values will run slightly faster.
 
 < clusterCalib.digitization.response = 100000 ns >
 
-Set the amount of time smoothing to be applied to the input wires.  The
-value controls the number of "side-band" samples to use when smoothing a
-particular sample.  A value of zero means no smoothing.
-
-< clusterCalib.smoothing.wire = 5 >
-
 After the wire channels are calibrated, the output FADC signals are
 analyzed for peaks using TSpectrum::SearchHighRes() using a very loose
 acceptance criteria.  Peaks found by the search are then examined to see if
@@ -42,6 +36,13 @@ Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
 
 < clusterCalib.peakSearch.rmsLimit = 4000 ns >
+
+Set the amount of time smoothing to be applied to the input signal before
+applying the deconvolution.  The value controls the number of "side-band"
+samples to use when smoothing a particular sample.  A value of zero means
+no smoothing.
+
+< clusterCalib.deconvolution.smoothing = 5 >
 
 The pulse deconvolution will remove the baseline from the pulse.  The base
 line is determined by runs of coherenceZone samples with fluctuations of

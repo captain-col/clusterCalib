@@ -18,7 +18,7 @@
 CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fSampleCount = sampleCount;
     fSmoothingWindow = CP::TRuntimeParameters::Get().GetParameterI(
-        "clusterCalib.smoothing.wire");
+        "clusterCalib.deconvolution.smoothing");
     fSmoothingWindow = std::max(1,fSmoothingWindow + 1);
     fFluctuationCut 
         = CP::TRuntimeParameters::Get().GetParameterD(
@@ -94,6 +94,11 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     // Copy the digit into the buffer for the FFT and then apply the
     // transformation.
     for (int i=0; i<fSampleCount; ++i) {
+        double p = calib.GetSample(i);
+        if (!std::isfinite(p)) {
+            CaptError("Channel " << calib.GetChannelId() 
+                      << " w/ invalid sample " << i);
+        }
         if (i < (int) calib.GetSampleCount()) {
             // Apply smoothing to the input signal.  This is controlled with
             // clusterCalib.smoothing.wire
@@ -202,7 +207,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // difference is greater than this, then the samples are not "coherent".
     double deltaCut = fSampleSigma*fFluctuationCut;
 
-    // define a maximum separation between the sample relative to the median
+    // Define a maximum separation between the sample relative to the median
     // sample.  If it's more than this, then the sample is not baseline.  This
     // is one sided.
     double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
@@ -223,6 +228,19 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         diff[i] = delta;
     }
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* diffHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-diff").c_str(),
+                   ("Differences from previous sample for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        diffHist->SetBinContent(i+1,diff[i]/fSampleSigma);
+    }
+#endif
+        
     // Estimate the baseline for regions where there isn't much change.
     std::vector<double> baseline;
     baseline.resize(digit.GetSampleCount());
@@ -238,7 +256,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         if (startZone < 0) startZone = 0;
 
         double deltaSample = 0.0;
-        for (int j = startZone; j<i; ++j) {
+        for (std::size_t j = startZone; j<i; ++j) {
             deltaSample = std::max(deltaSample,
                                    std::abs(digit.GetSample(i)
                                             -digit.GetSample(j)));
@@ -251,7 +269,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         std::size_t startZone = i + fCoherenceZone;
 
         double deltaSample = 0.0;
-        for (int j = i+1; j<=startZone; ++j) {
+        for (std::size_t j = i+1; j<=startZone; ++j) {
             deltaSample = std::max(deltaSample,
                                    std::abs(digit.GetSample(i)
                                             -digit.GetSample(j)));
@@ -259,6 +277,19 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         drift[i] = std::max(deltaSample, drift[i]);
     }
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* driftHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-drift").c_str(),
+                   ("Drift for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        driftHist->SetBinContent(i+1, drift[i]/driftSigma);
+    }
+#endif
+        
     // First look forward through the samples.
     int coh = 0;
     for (std::size_t i=0; i < diff.size(); ++i) {
@@ -298,7 +329,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         int offset = 0.5*fCoherenceZone;
         baseline[i-offset] = digit.GetSample(i-offset);
     }
-
 
     coh = 0;
     // Now look backwards through the differences.
@@ -349,8 +379,10 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // next step is to tentatively interpolate into those zones and check if
     // the interpolated baseline is bigger than the sample.  If the
     // interpolated baseline is bigger, then the sample becomes the new
-    // baseline for that point.
+    // baseline for that point.  The drift variable will take the new
+    // candidate baseline values.
     for (std::size_t i = 0; i<baseline.size(); ++i) {
+        drift[i] = 0.0;
         if (std::abs(baseline[i]) > 1E-6) continue;
         std::size_t j = i;
         while (0<j && std::abs(baseline[j]) < 1E-6) --j;
@@ -358,8 +390,53 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         while (k<baseline.size() && std::abs(baseline[k]) < 1E-6) ++k;
         double interp = (k-i)*baseline[j] + (i-j)*baseline[k];
         interp /= 1.0*(k-j);
-        if (digit.GetSample(i) < interp) baseline[i] = digit.GetSample(i);
+        if (digit.GetSample(i) < interp) drift[i] = digit.GetSample(i);
     }
+
+    // Reject any new baseline regions where its only a few bins below the
+    // interpolated baseline.
+    for (std::size_t i = 0; i<baseline.size(); ++i) {
+        if (std::abs(drift[i]) < 1E-6) continue;
+        std::size_t j = i;
+        while (j<drift.size() && std::abs(drift[j]) > 1E-6) ++j;
+        if ((j-i) < 3) {
+            for (std::size_t k = i; k<j; ++k) drift[k] = 0.0;
+        }
+        i = j;
+    }
+
+    // Smooth the baseline to get rid of the highest frequency components.
+    // This overwrites the drift vector to save an allocation (i.e. false
+    // optimization!).
+    int baselineWindow = 5;
+    for (int i = 0; i<(int)baseline.size(); ++i) {
+        // Skip non-baseline like regions.
+        drift[i] = 0.0;
+        if (std::abs(baseline[i]) < 1E-6) continue;
+        // Apply smoothing to the input signal.  This is controlled with
+        // clusterCalib.smoothing.wire
+        double val = 0.0;
+        double weight = 0.0;
+        for (int j=0; j<baselineWindow; ++j) {
+            double w = baselineWindow - j;
+            if (j == 0 && std::abs(baseline[i])>1E-6) {
+                val += w * baseline[i];
+                weight += w;
+                continue;
+            }
+            if (0 <= (i-j) && std::abs(baseline[i-j])>1E-6) {
+                val += w * baseline[i-j];
+                weight += w;
+            }
+            if ((i+j) < (int) baseline.size() && std::abs(baseline[i+j])>1E-6) {
+                val += w * baseline[i+j];
+                weight += w;
+            }
+        }
+        if (weight < 0.001) continue;
+        drift[i] = val/weight;
+    }
+    std::copy(drift.begin(), drift.end(), baseline.begin());
 
     // Now do a final interpolation to get the baseline everywhere.
     for (std::size_t i = 0; i<baseline.size(); ++i) {
@@ -386,32 +463,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
 #endif
 
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-    TH1F* diffHist 
-        = new TH1F((digit.GetChannelId().AsString()+"-diff").c_str(),
-                   ("Differences from previous sample for " 
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        diffHist->SetBinContent(i+1,diff[i]/fSampleSigma);
-    }
-#endif
-        
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-    TH1F* driftHist 
-        = new TH1F((digit.GetChannelId().AsString()+"-drift").c_str(),
-                   ("Drift for " 
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        driftHist->SetBinContent(i+1, drift[i]/driftSigma);
-    }
-#endif
-        
     // Now remove the baseline from the sample and calculate the sigma for the
     // baseline (relative to the mean baseline).
     fBaselineSigma = 0.0;
