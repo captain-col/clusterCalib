@@ -218,7 +218,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         if (xx[i] < digitEndSkip) continue;
         if (xx[i] > digit.GetSampleCount()-digitEndSkip - 1) continue;
         // Check the peak size and deconvolution power.
-        int index = xx[i] + 0.5;
+        int index = (int) (xx[i] + 0.5);
         if (digit.GetSample(index) < fPeakMaximumCut) continue;
         if (fDest[index] < fPeakDeconvolutionCut) continue;
         peaks.push_back(xx[i]);
@@ -236,7 +236,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     double chargeThresh = 0.1;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
-        int i = *p + 0.5;
+        int i = (int) (*p + 0.5);
         int beginIndex = 0;
         int endIndex = digit.GetSampleCount();
         double peak = digit.GetSample(i);
@@ -250,11 +250,11 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                  o != peaks.end(); ++o) {
                 if (o == p) continue;
                 if (*o < *p) {
-                    int t = (*p+*o)/2;
+                    int t = (int) ((*p+*o)/2);
                     if (beginIndex<t) beginIndex = t;
                 }
                 else {
-                    int t = (*p+*o)/2;
+                    int t = (int) ((*p+*o)/2);
                     if (endIndex>t) endIndex = t;
                 }
             }
@@ -306,7 +306,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         double rawRMS = (timeSquared - time*time);
         rawRMS = digitStep*std::sqrt(rawRMS+1.0);
 
-        int split = rawRMS/fPeakRMSLimit + 1.0;
+        int split = (int) (rawRMS/fPeakRMSLimit + 1.0);
         double step = 1.0*(endIndex-beginIndex)/split;
 
         /// The loop looks a little odd since it's being done with doubles,
@@ -315,8 +315,8 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         for (double baseIndex = beginIndex; 
              baseIndex<endIndex; 
              baseIndex += step) {
-            int i = baseIndex;
-            int j = baseIndex + step;
+            int i = (int) baseIndex;
+            int j = (int) (baseIndex + step);
             CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, t0,
                                                    baselineSigma,
                                                    sampleSigma,
