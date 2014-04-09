@@ -300,8 +300,8 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         // than the difference cut.  This is a running sum that increments the
         // count if the new bin is less than the cut, and decrements it when
         // the bin leaves the zone.
-        if (diff[i] < deltaCut) coh += 1.0;
-        if (0 <= startZone && diff[startZone] < deltaCut) coh -= 1.0;
+        if (diff[i] < deltaCut) coh += 1;
+        if (0 <= startZone && diff[startZone] < deltaCut) coh -= 1;
 
         // Handle the special cases.  This could be done more compactly, but I
         // want to be very explicit about which criteria is triggered.
@@ -326,7 +326,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
-        int offset = 0.5*fCoherenceZone;
+        int offset = (int) (0.5*fCoherenceZone);
         baseline[i-offset] = digit.GetSample(i-offset);
     }
 
@@ -339,10 +339,10 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         // Find the number of differences in the coherence zone that are less
         // than the difference cut.
         if (diff[i] < deltaCut) {
-            coh += 1.0;
+            coh += 1;
         }
         if (startZone < diff.size() && diff[startZone] < deltaCut) {
-            coh -= 1.0;
+            coh -= 1;
         }
 
         // Handle the special cases.  This could be done more compactly, but I
@@ -368,7 +368,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
-        int offset = 0.5*fCoherenceZone;
+        int offset = (int) (0.5*fCoherenceZone);
         baseline[i+offset] = digit.GetSample(i+offset);
 
     }
