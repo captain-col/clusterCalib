@@ -107,7 +107,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::THandle<CP::TDataVector> hits
             = event.Get<CP::TDataVector>("~/hits");
         hits->AddDatum(pmtHits.release());
-        
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
@@ -120,9 +119,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             = event.Get<CP::TDataVector>("~/digits");
         CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
         dv->AddDatum(dg);
-        CP::THandle<CP::TDigitContainer> driftDeconv
-            = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
     }
+
+    // Check to see if the drift-deconv digit container exists.  If it does
+    // exist, then it will be filled with the deconvoluted digits.
     CP::THandle<CP::TDigitContainer> driftDeconv
         = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
 
