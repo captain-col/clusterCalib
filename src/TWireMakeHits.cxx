@@ -76,12 +76,18 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     
     // Find the sample RMS, and then convert into a time RMS.
     double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
-    
+
+    // The ifdef code controls how the RMS is handled when the pulse is being
+    // split.  If the code is in, then the RMS is artificially set to be the
+    // half with of the time slice.  Otherwise, the real RMS is used.  The
+    // default is to use the real RMS.
+#ifdef RESET_SPLIT_RMS
     // If this is from a pulse that is being split, then the RMS is defined by
     // the half width of the split part of the pulse.
-    // if (split) {
-    //     rms = 0.5*step*(endIndex-beginIndex);
-    // }
+    if (split) {
+        rms = 0.5*step*(endIndex-beginIndex);
+    }
+#endif
 
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.
