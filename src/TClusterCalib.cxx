@@ -41,7 +41,7 @@ CP::TClusterCalib::TClusterCalib() {
 
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
-    fSaveCalibratedPulses = true;
+    fSaveCalibratedPulses = false;
     fApplyDriftCalibration = true;
     fApplyEfficiencyCalibration = true;
 }

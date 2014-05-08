@@ -7,7 +7,7 @@ class TClusterCalibLoop: public CP::TEventLoopFunction {
 public:
     TClusterCalibLoop() {
         fClusterCalib = NULL;
-        fSavePulses = true;
+        fSavePulses = false;
         fApplyDriftCalibration = true;
         fApplyEfficiencyCalibration = true;
     }
