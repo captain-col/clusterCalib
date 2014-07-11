@@ -68,7 +68,7 @@ The threshold for a PMT hit.  The PMT signals are calibrated so that the
 integral of a 1 pe pulse is 1.0, so the peak is typically around 0.05, and
 the noise level is around 0.005.
 
-< clusterCalib.pmt.threshold = 0.02 >
+< clusterCalib.pmt.threshold = 0.05 >
 
 The collection efficiency for each of the types of wires in the MC.  These
 were calculated using CLUSTERCALIB.exe -O no-efficiency.
