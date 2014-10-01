@@ -10,6 +10,8 @@
 #include <HEPUnits.hxx>
 #include <TRuntimeParameters.hxx>
 
+#define SKIP_DATA_CALIBRATION
+
 CP::TChannelCalib::TChannelCalib() { }
 
 CP::TChannelCalib::~TChannelCalib() { } 
@@ -31,6 +33,10 @@ bool CP::TChannelCalib::IsBipolarSignal(CP::TChannelId id) {
         default: return false;
         }
     }
+
+#ifdef SKIP_DATA_CALIBRATION
+    return false;
+#endif
 
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
@@ -66,6 +72,11 @@ double CP::TChannelCalib::GetGainConstant(CP::TChannelId id, int order) {
 
         return 0.0;
     }
+
+#ifdef SKIP_DATA_CALIBRATION
+    if (order == 1) return 1.0;
+    return 0.0;
+#endif
 
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
@@ -108,6 +119,11 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
         return 0.0;
     }
 
+#ifdef SKIP_DATA_CALIBRATION
+    if (order == 1) return 1.0;
+    return 0.0;
+#endif
+
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
     return 0.0;
@@ -137,6 +153,10 @@ double CP::TChannelCalib::GetDigitizerConstant(CP::TChannelId id, int order) {
             return (*slopeVect)[index];
         }
 
+#ifdef SKIP_DATA_CALIBRATION
+        if (order == 1) return 1.0;
+        return 0.0;
+#endif
         return 0.0;
     }
 
@@ -197,9 +217,13 @@ double CP::TChannelCalib::GetCollectionEfficiency(CP::TChannelId id) {
         }
     }
 
+#ifdef SKIP_DATA_CALIBRATION
+    return 1.0;
+#endif
+
+
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
-    return 0.0;
-
+    return 1.0;
 }
 
