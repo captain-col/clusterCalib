@@ -75,7 +75,7 @@ double CP::TChannelCalib::GetGainConstant(CP::TChannelId id, int order) {
 
 #ifdef SKIP_DATA_CALIBRATION
     if (order == 1) return 1.0;
-    return 0.0;
+    return 2048.0;
 #endif
 
     CaptError("Unknown channel: " << id);
@@ -153,12 +153,13 @@ double CP::TChannelCalib::GetDigitizerConstant(CP::TChannelId id, int order) {
             return (*slopeVect)[index];
         }
 
+        return 0.0;
+    }
+
 #ifdef SKIP_DATA_CALIBRATION
         if (order == 1) return 1.0;
         return 0.0;
 #endif
-        return 0.0;
-    }
 
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
@@ -171,7 +172,7 @@ double CP::TChannelCalib::GetElectronLifetime() {
     // Get the electron lifetime.
     CP::THandle<CP::TRealDatum> stepVect
         = ev->Get<CP::TRealDatum>("~/truth/elecSimple/argon");
-    if (!stepVect) return 2*unit::millisecond;
+    if (!stepVect) return 3.14E+8*unit::second;
     return (*stepVect)[1];
 }
 

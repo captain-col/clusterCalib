@@ -57,56 +57,59 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     CaptLog("Process " << event.GetContext());
     CP::TChannelInfo::Get().SetContext(event.GetContext());    
 
-    if (!pmt) {
-        CaptLog("No PMT signals for this event " << event.GetContext());
-        return false;
-    }
-    
-    if (!drift) {
-        CaptLog("No drift signals for this event " << event.GetContext());
-        return false;
-    }
-
     std::auto_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
 
     CP::TPMTMakeHits makePMTHits;
+    double t0 = 1E+50;
 
-    // Calibrate the PMT pulses and turn them into hits.
-    for (std::size_t d = 0; d < pmt->size(); ++d) {
-        const CP::TPulseDigit* pulse 
-            = dynamic_cast<const CP::TPulseDigit*>((*pmt)[d]);
-        if (!pulse) {
-            CaptError("Non-pulse in PMT digits");
-            continue;
-        }
-        CP::TDigitProxy proxy(*pmt,d);
-        std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-        makePMTHits(*pmtHits,*calib);
-
+    if (!pmt) {
+        CaptLog("No PMT signals for this event " << event.GetContext());
+        t0 = 0.0;
+    }
+    else {
+        // Calibrate the PMT pulses and turn them into hits.
+        for (std::size_t d = 0; d < pmt->size(); ++d) {
+            const CP::TPulseDigit* pulse 
+                = dynamic_cast<const CP::TPulseDigit*>((*pmt)[d]);
+            if (!pulse) {
+                CaptError("Non-pulse in PMT digits");
+                continue;
+            }
+            CP::TDigitProxy proxy(*pmt,d);
+            std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+            makePMTHits(*pmtHits,*calib);
+            
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        TH1F* calibHist 
-            = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
-                       ("Calibration for " 
-                        + calib->GetChannelId().AsString()).c_str(),
-                       calib->GetSampleCount(),
-                       calib->GetFirstSample(), calib->GetLastSample());
-        for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
-            calibHist->SetBinContent(i+1,calib->GetSample(i));
-        }
+            TH1F* calibHist 
+                = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
+                           ("Calibration for " 
+                            + calib->GetChannelId().AsString()).c_str(),
+                           calib->GetSampleCount(),
+                           calib->GetFirstSample(), calib->GetLastSample());
+            for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
+                calibHist->SetBinContent(i+1,calib->GetSample(i));
+            }
 #endif
-        
-    }
-    double t0 = 1E+50;
-    if (pmtHits->size() > 0) {
-        for (CP::THitSelection::iterator p = pmtHits->begin();
-             p != pmtHits->end(); ++p) {
-            t0 = std::min((*p)->GetTime(),t0);
+            
         }
-        // Add the pmt hits to the output.
-        CP::THandle<CP::TDataVector> hits
-            = event.Get<CP::TDataVector>("~/hits");
-        hits->AddDatum(pmtHits.release());
+        if (pmtHits->size() > 0) {
+            for (CP::THitSelection::iterator p = pmtHits->begin();
+                 p != pmtHits->end(); ++p) {
+                t0 = std::min((*p)->GetTime(),t0);
+            }
+            // Add the pmt hits to the output.
+            CP::THandle<CP::TDataVector> hits
+                = event.Get<CP::TDataVector>("~/hits");
+            hits->AddDatum(pmtHits.release());
+        }
+    }
+
+    CaptError("Check drift");
+
+    if (!drift) {
+        CaptLog("No drift signals for this event " << event.GetContext());
+        return false;
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
@@ -127,6 +130,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
 
     // Calibrate the drift pulses.
+    CaptError("Drift size " << drift->size()); 
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse 
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -135,8 +139,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             continue;
         }
 
+        CaptLog("Calibrate " << pulse->GetChannelId().AsString());
+
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
@@ -151,6 +158,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 #endif
         
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 
