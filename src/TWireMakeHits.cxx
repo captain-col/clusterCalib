@@ -102,6 +102,8 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     CP::TGeometryId geomId 
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
 
+    if (!geomId.IsValid()) return CP::THandle<CP::THit>();
+
     if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
         CaptError("Time uncertainty for " << digit.GetChannelId() 
                   << " is not positive and finite ");
