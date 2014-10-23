@@ -62,6 +62,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     CP::TPMTMakeHits makePMTHits;
     double t0 = 1E+50;
 
+    ///////////////////////////////////////////////////////////////////////
+    // PMT Calibration
+    ///////////////////////////////////////////////////////////////////////
+
     if (!pmt) {
         CaptLog("No PMT signals for this event " << event.GetContext());
         t0 = 0.0;
@@ -105,12 +109,15 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
     }
 
-    CaptError("Check drift");
+    ///////////////////////////////////////////////////////////////////////
+    /// Drift Calibration
+    ///////////////////////////////////////////////////////////////////////
 
     if (!drift) {
         CaptLog("No drift signals for this event " << event.GetContext());
         return false;
     }
+
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
     CP::TWireMakeHits makeWireHits(fApplyDriftCalibration, 
@@ -130,7 +137,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
 
     // Calibrate the drift pulses.
-    CaptError("Drift size " << drift->size()); 
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse 
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -139,11 +145,18 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             continue;
         }
 
-        CaptLog("Calibrate " << pulse->GetChannelId().AsString());
+        CP::TGeometryId pulseGeom 
+            = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
+
+        if (!pulseGeom.IsValid()) {
+            CaptLog("No wire " << pulse->GetChannelId().AsString());
+            continue;
+        }
+        CaptLog("Calibrate " << pulse->GetChannelId().AsString()
+                << " " << std::setw(40) << pulseGeom << std::setw(0));
 
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
@@ -157,8 +170,82 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
-        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 #define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        static TH1F* gClusterCalibXPedestal = NULL;
+        static TH1F* gClusterCalibVPedestal = NULL;
+        static TH1F* gClusterCalibUPedestal = NULL;
+        if (!gClusterCalibXPedestal) {
+            gClusterCalibXPedestal
+                = new TH1F("clusterCalibXPedestal",
+                           "Pedestal for the X wires",
+                           5000, 0.0, 5000);
+        }
+        if (!gClusterCalibUPedestal) {
+            gClusterCalibUPedestal
+                = new TH1F("clusterCalibUPedestal",
+                           "Pedestal for the U wires",
+                           5000, 0.0, 5000);
+        }
+        if (!gClusterCalibVPedestal) {
+            gClusterCalibVPedestal 
+                = new TH1F("clusterCalibVPedestal",
+                           "Pedestal for the V wires",
+                           5000, 0.0, 5000);
+        }
+        
+        {
+            TH1F* hist = NULL;
+            switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
+            case 0: hist = gClusterCalibXPedestal; break;
+            case 1: hist = gClusterCalibVPedestal; break;
+            case 2: hist = gClusterCalibUPedestal; break;
+            default: std::exit(1);
+            }
+            hist->Fill(fCalibrate->GetPedestal());
+        }
+#endif
+
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        static TH1F* gClusterCalibXSigma = NULL;
+        static TH1F* gClusterCalibVSigma = NULL;
+        static TH1F* gClusterCalibUSigma = NULL;
+        if (!gClusterCalibXSigma) {
+            gClusterCalibXSigma
+                = new TH1F("clusterCalibXSigma",
+                           "Sigma for the X wires",
+                           200, 0.0, 100);
+        }
+        if (!gClusterCalibUSigma) {
+            gClusterCalibUSigma
+                = new TH1F("clusterCalibUSigma",
+                           "Sigma for the U wires",
+                           200, 0.0, 100);
+        }
+        if (!gClusterCalibVSigma) {
+            gClusterCalibVSigma 
+                = new TH1F("clusterCalibVSigma",
+                           "Sigma for the V wires",
+                           200, 0.0, 100);
+        }
+        
+        {
+            TH1F* hist = NULL;
+            switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
+            case 0: hist = gClusterCalibXSigma; break;
+            case 1: hist = gClusterCalibVSigma; break;
+            case 2: hist = gClusterCalibUSigma; break;
+            default: std::exit(1);
+            }
+            hist->Fill(fCalibrate->GetSigma());
+        }
+#endif
+
+        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 

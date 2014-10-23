@@ -24,5 +24,24 @@ public:
     /// Do the actual calibration.
     CP::TCalibPulseDigit* operator()(const CP::TDigitProxy& digit);
 
+    /// Get the last pedestal value.
+    int GetPedestal() {return fPedestal;}
+
+    /// Get the most recent average value.
+    double GetAverage() {return fAverage;}
+    
+    /// Get the most recent channel sigma.
+    double GetSigma() {return fSigma;}
+
+private:
+
+    /// The most recent pedestal value
+    int fPedestal;
+
+    /// The most recent average channel value
+    double fAverage;
+
+    /// The most recent channel sigma.
+    double fSigma;
 };
 #endif
