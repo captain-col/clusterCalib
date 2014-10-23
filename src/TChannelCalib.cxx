@@ -120,7 +120,7 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
-    if (order == 1) return 1.0;
+    if (order == 1) return 500.0*unit::ns;
     return 0.0;
 #endif
 
