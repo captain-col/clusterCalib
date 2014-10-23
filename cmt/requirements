@@ -13,6 +13,7 @@ use captChanInfo
 use captEvent
 use testBase
 use captainPolicy 
+use captTrans
 use ROOT * LCG_Interfaces
 
 # Build the documentation.

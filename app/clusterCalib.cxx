@@ -15,7 +15,8 @@ public:
     virtual ~TClusterCalibLoop() {};
 
     void Usage(void) {
-        std::cout << "    -O pulse      Save the calibrated pulses"
+        std::cout << "    -O pulse      "
+                  << "Save the calibrated (after deconvolution) pulses"
                   << std::endl;
         std::cout << "    -O no-pulse   Don't save the calibrated pulses"
                   << std::endl;
