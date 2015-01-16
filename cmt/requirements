@@ -7,7 +7,6 @@ author Clark McGrew <clark.mcgrew@stonybrook.edu>
 
 # The packages used by this one.  Only direct dependencies should be
 # included. 
-use eventDisplay
 use captChanInfo
 use captEvent
 use testBase
