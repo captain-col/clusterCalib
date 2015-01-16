@@ -149,11 +149,17 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
 
         if (!pulseGeom.IsValid()) {
-            CaptLog("No wire " << pulse->GetChannelId().AsString());
             continue;
         }
-        CaptLog("Calibrate " << pulse->GetChannelId().AsString()
-                << " " << std::setw(40) << pulseGeom << std::setw(0));
+
+        if (d%100 == 0) {
+            CaptLog("Calibrate " << pulse->GetChannelId().AsString()
+                     << " " << std::setw(40) << pulseGeom << std::setw(0));
+        }
+        else {
+            CaptInfo("Calibrate " << pulse->GetChannelId().AsString()
+                     << " " << std::setw(40) << pulseGeom << std::setw(0));
+        }
 
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));

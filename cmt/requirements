@@ -7,7 +7,6 @@ author Clark McGrew <clark.mcgrew@stonybrook.edu>
 
 # The packages used by this one.  Only direct dependencies should be
 # included. 
-use elecSim
 use eventDisplay
 use captChanInfo
 use captEvent
