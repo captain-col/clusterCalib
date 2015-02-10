@@ -39,16 +39,6 @@ public:
     std::size_t GetSize() const {return fResponse.size();}
     /// @}
 
-    /// @{ Set (or Get) the time per sample.
-    void SetStep(double s);
-    double GetStep() const {return fSampleTime;}
-    /// @}
-
-    /// @{ Set or get the most recently used peaking time.
-    void SetPeakingTime(double s);
-    double GetPeakingTime() const {return fPeakingTime;}
-    /// @}
-
     /// Get the response for a time bin.  This returns 0.0 if the bin is out
     /// of range (either negative of larger than the response distribution
     /// vector size).
@@ -77,7 +67,7 @@ public:
     /// Calculate the delta function response for a particular peaking time.
     /// This version of the Calculate method always returns true, and does the
     /// actual recalculation.
-    bool Calculate(double peakingTime);
+    bool Calculate();
     
 private:
     /// Return true if the delta function response has changed since the last
@@ -98,12 +88,6 @@ private:
 
     /// The channel id of the last calculation.
     CP::TChannelId fChannelId;
-
-    /// The peaking time of the response function calculated.
-    double fPeakingTime;
-
-    /// The sampling time for the response functin.
-    double fSampleTime;
 
     /// The response distribution
     std::vector<Response> fResponse;

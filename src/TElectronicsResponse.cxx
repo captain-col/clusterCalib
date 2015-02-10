@@ -7,6 +7,7 @@
 #include <TRealDatum.hxx>
 #include <TMCChannelId.hxx>
 #include <TChannelId.hxx>
+#include <TChannelCalib.hxx>
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>
@@ -15,10 +16,10 @@
 #include <memory>
 
 CP::TElectronicsResponse::TElectronicsResponse() 
-    : fMustRecalculate(true), fPeakingTime(-1.0), fSampleTime(-1.0) {}
+    : fMustRecalculate(true) {}
 
 CP::TElectronicsResponse::TElectronicsResponse(int size) 
-    : fMustRecalculate(true), fPeakingTime(-1.0), fSampleTime(-1.0) {
+    : fMustRecalculate(true) {
     fResponse.resize(size);
     fFrequency.resize(size);
 }
@@ -32,41 +33,11 @@ void CP::TElectronicsResponse::SetSize(int s) {
     fFrequency.resize(s);
 }
 
-void CP::TElectronicsResponse::SetStep(double s) {
-    do {
-        if (fSampleTime <= 0.0) {
-            fMustRecalculate = true;
-            break;
-        }
-        double change = (s-fSampleTime)/std::max(s,fSampleTime);
-        if (change > 1E-8) {
-            fMustRecalculate = true;
-            break;
-        }
-    } while (false);
-    if (fMustRecalculate) fSampleTime = s;
-}
-
-void CP::TElectronicsResponse::SetPeakingTime(double s) {
-    do {
-        if (fPeakingTime <= 0.0) {
-            fMustRecalculate = true;
-            break;
-        }
-        double change = (s-fPeakingTime)/std::max(s,fPeakingTime);
-        if (change > 1E-8) {
-            fMustRecalculate = true;
-            break;
-        }
-    } while (false);
-    if (fMustRecalculate) fPeakingTime = s;
-}
-
 CP::TElectronicsResponse::Response
 CP::TElectronicsResponse::GetResponse(int i) {
     if (i<0) return 0.0;
     if ((int) fResponse.size() <= i) return 0.0;
-    if (fMustRecalculate) Calculate(GetPeakingTime());
+    Calculate();
     return fResponse[i];
 }
 
@@ -74,19 +45,21 @@ CP::TElectronicsResponse::Frequency
 CP::TElectronicsResponse::GetFrequency(int i) {
     if (i<0) return Frequency(0,0);
     if ((int) fFrequency.size() <= i) return Frequency(0,0);
-    if (fMustRecalculate) Calculate(GetPeakingTime());
+    Calculate();
     return fFrequency[i];
 }
 
-bool CP::TElectronicsResponse::Calculate(double peakingTime) {
-    fPeakingTime = peakingTime;
+bool CP::TElectronicsResponse::Calculate() {
+    if (!fMustRecalculate) return false;
     fMustRecalculate = false;
 
+    TChannelCalib calib;
+    
     // Fill the response function.  This explicitly normalizes.
     double normalization = 0.0;
     for (std::size_t i=0; i<fResponse.size(); ++i) {
-        double arg = fSampleTime*(1.0*i+0.5)/fPeakingTime;
-        double v = (arg<40)? arg*std::exp(-arg): 0.0;
+        double arg = calib.GetTimeConstant(fChannelId)*(1.0*i+0.5);
+        double v = calib.GetPulseShape(fChannelId,arg);
         fResponse[i] = v;
 #ifdef UNIT_NORMALIZATION
         normalization += v;
@@ -118,6 +91,7 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
         fFrequency[i] = std::complex<double>(rl,im);
     }
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* elecResp = new TH1F("elecResp",
@@ -141,34 +115,21 @@ bool CP::TElectronicsResponse::Calculate(double peakingTime) {
 
 bool CP::TElectronicsResponse::Calculate(const CP::TEventContext& context,
                                          const CP::TChannelId channel) {
+
+    // Check for all the things that might have changed.
+    if (channel.IsMCChannel() != fChannelId.IsMCChannel()) {
+        fMustRecalculate = true;
+    }
+
+    if (channel.IsTPCChannel() != fChannelId.IsTPCChannel()) {
+        fMustRecalculate = true;
+    }
+
+    if (context != fEventContext) {
+        fMustRecalculate = true;
+    }
+        
     fEventContext = context;
     fChannelId = channel;
-
-    // Get the channel calibrations.
-    if (channel.IsMCChannel()) {
-        TMCChannelId mc(channel);
-        int index = -1;
-        if (mc.GetType() == 0) index = mc.GetSequence();
-        else if (mc.GetType() == 1) index = 3;
-        else {
-            CaptError("Unknown channel: " << mc);
-            return false;
-        }
-        
-        CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
-        
-        // Get the electronics shape.
-        CP::THandle<CP::TRealDatum> shapeVect
-            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/shape");
-        double val = (*shapeVect)[index];
-        SetPeakingTime(val);
-
-        // get the length of each sample.
-        CP::THandle<CP::TRealDatum> stepVect
-            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/digitStep");
-        val = (*stepVect)[index];
-        SetStep(val);
-    }
-    
     return true;
 }
