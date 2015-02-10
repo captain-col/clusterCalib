@@ -7,6 +7,7 @@
 #include <TRealDatum.hxx>
 #include <TMCChannelId.hxx>
 #include <TChannelId.hxx>
+#include <TChannelCalib.hxx>
 
 #include <TVirtualFFT.h>
 
@@ -53,6 +54,7 @@ bool CP::TWireResponse::Calculate() {
     // Fill the response function.  This explicitly normalizes.
     switch (fWireClass) {
     case kDeltaFunction:
+        CaptLog("Calculate delta function wire response");
         // Use a delta function in time for the wire response.  This is an
         // appropriate approximation for the collection wires (i.e. the X
         // plane).
@@ -63,6 +65,7 @@ bool CP::TWireResponse::Calculate() {
         fResponse[0] = 1;
         return true;
     case kTimeDerivative:
+        CaptLog("Calculate differential function wire response");
         // Use the derivative of the charge w.r.t. time for the wire response.
         // This is an appropriate approximation for the induction wires
         // (i.e. the U and V planes).
@@ -105,6 +108,19 @@ bool CP::TWireResponse::Calculate(const CP::TEventContext& context,
     fEventContext = context;
     fChannelId = channel;
 
+
+#define USE_TCHANNEL_CALIB
+#ifdef USE_TCHANNEL_CALIB
+    CP::TChannelCalib calib;
+    if (calib.IsBipolarSignal(channel) && fWireClass != kTimeDerivative) {
+        fWireClass = kTimeDerivative;
+        fMustRecalculate = true;
+    }
+    if (not calib.IsBipolarSignal(channel) && fWireClass != kDeltaFunction) {
+        fWireClass = kDeltaFunction;
+        fMustRecalculate = true;
+    }
+#else
     // Get the channel calibrations.
     if (channel.IsMCChannel()) {
         TMCChannelId mc(channel);
@@ -135,6 +151,7 @@ bool CP::TWireResponse::Calculate(const CP::TEventContext& context,
             std::exit(1);
         }
     }
+#endif
     
     return true;
 }
