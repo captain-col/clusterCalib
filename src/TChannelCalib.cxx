@@ -74,10 +74,47 @@ double CP::TChannelCalib::GetGainConstant(CP::TChannelId id, int order) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
-    if (order == 1) return 1.0;
+    if (order == 1) return 4.7*unit::mV/unit::fC;
     return 2048.0;
 #endif
 
+    CaptError("Unknown channel: " << id);
+    throw EChannelCalibUnknownType();
+    return 0.0;
+}
+
+double CP::TChannelCalib::GetPulseShape(CP::TChannelId id, double t) {
+    if (id.IsMCChannel()) {
+        if (t < 0.0) return 0.0;
+
+        TMCChannelId mc(id);
+        int index = -1;
+        if (mc.GetType() == 0) index = mc.GetSequence();
+        else if (mc.GetType() == 1) index = 3;
+        else {
+            CaptError("Unknown channel: " << id);
+            throw CP::EChannelCalibUnknownType();
+        }
+            
+        CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+        
+        // Get the rise time.
+        CP::THandle<CP::TRealDatum> shapeVect
+            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/shape");
+        double peakingTime = (*shapeVect)[index];
+
+        
+        double arg = t/peakingTime;
+        double v = (arg<40)? arg*std::exp(-arg): 0.0;
+        return v;
+    }
+
+#ifdef SKIP_DATA_CALIBRATION
+    if (t < 0.0) return 0.0;
+    if (t < GetTimeConstant(id)) return 1.0;
+    return 0.0;
+#endif
+    
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
     return 0.0;
@@ -157,8 +194,8 @@ double CP::TChannelCalib::GetDigitizerConstant(CP::TChannelId id, int order) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
-        if (order == 1) return 1.0;
-        return 0.0;
+    if (order == 1) return 2.5/unit::mV;
+    return 0.0;
 #endif
 
     CaptError("Unknown channel: " << id);

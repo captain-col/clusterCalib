@@ -25,14 +25,20 @@ public:
     /// wires and PMTs are unipolar.  The induction wires are bipolar.
     bool IsBipolarSignal(CP::TChannelId id);
 
-    /// Get the amplifier gain constants for a channel.  The second parameter
-    /// is the order of the constant.  Normally, order 0 is the pedestal,
-    /// order 1 is linear, order 2 is quadratic, etc.
+    /// Get the amplifier gain constants for a channel.  The second
+    /// parameter is the order of the constant.  Normally, order 0 is the
+    /// pedestal, order 1 is linear, order 2 is quadratic, etc, however, the
+    /// definitions depend on the calibration model.  For instance, in the
+    /// future, we might use model with a logarithmic saturation.
+    ///
+    /// In the TPC electronics, the linear term has units of
+    /// (voltage)/(charge).
     double GetGainConstant(CP::TChannelId id, int order=1);
 
-    /// Get the time constants for a channel.  The second parameter is the
-    /// order of the constant.  Normally, order 0 is the pedestal, order 1 is
-    /// linear, order 2 is quadratic, etc.
+    /// Get the time constants for a channel.  These are the calibration
+    /// constants for the time per digitizer sample.  The nominal value is 500
+    /// ns. The second parameter is the order of the constant.  Normally,
+    /// order 0 is the pedestal, order 1 is linear, order 2 is quadratic, etc.
     double GetTimeConstant(CP::TChannelId id, int order=1);
 
     /// Get the digitizer slope of ADC/(input voltage).  The second parameter
@@ -56,6 +62,9 @@ public:
     /// differences, but those are not calculated with CLUSTERCALIB.exe.
     double GetCollectionEfficiency(CP::TChannelId id);
 
+    /// Get the pulse shaping for the ASIC as a function of time.
+    /// microsecond.
+    double GetPulseShape(CP::TChannelId id, double t);
 };
 
 #endif
