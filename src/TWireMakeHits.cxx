@@ -25,6 +25,7 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
     fNSource = 0;
     fSource = NULL;
     fDest = NULL;
+    fWork = NULL;
 
     fPeakMaximumCut 
         = CP::TRuntimeParameters::Get().GetParameterD(
@@ -34,6 +35,10 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.deconvolution");
 
+    fNoiseThresholdCut 
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.peakSearch.noise");
+
     fPeakRMSLimit 
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.rmsLimit");
@@ -42,6 +47,7 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
 CP::TWireMakeHits::~TWireMakeHits() {
     if (fSource) delete[] fSource;
     if (fDest) delete[] fDest;
+    if (fWork) delete[] fWork;
 }
 
 CP::THandle<CP::THit> 
@@ -156,22 +162,32 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     if (fNSource < (int) digit.GetSampleCount()) {
         if (fSource) delete[] fSource;
         if (fDest) delete[] fDest;
+        if (fWork) delete[] fWork;
         fNSource = 2*digit.GetSampleCount();
         fSource = new float[fNSource];
         fDest = new float[fNSource];
+        fWork = new float[fNSource];
     }
-    
-    // Fill the spectrum.
+
+    // Fill the spectrum and reset the destination.
+    double signalOffset = 100000.0;
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         double p = digit.GetSample(i);
         if (!std::isfinite(p)) {
             CaptError("Channel " << digit.GetChannelId() 
                       << " w/ invalid sample " << i);
         }
-        fSource[i] = digit.GetSample(i) + 1000.0;
+        fSource[i] = digit.GetSample(i);
         fDest[i] = 0.0;
+        signalOffset = std::max(signalOffset, std::abs(fSource[i])+100.0);
     }
 
+    // Add an artificial baseline to the source so that the values are always
+    // positive definite (a TSpectrum requirement).
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        fSource[i] += signalOffset;
+    }
+    
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* sourceHist 
@@ -181,7 +197,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                    digit.GetSampleCount(),
                    digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        sourceHist->SetBinContent(i+1,fSource[i]-1000.0);
+        sourceHist->SetBinContent(i+1,fSource[i]);
     }
 #endif
         
@@ -203,17 +219,40 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                                         removeBkg, iterations, 
                                         useMarkov, window);
 
+    // Remove the artificial baseline from the destination.
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        fDest[i] -= signalOffset;
+    }
+
+    // Find the new baseline.
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        fWork[i] = fDest[i];
+    }
+    std::sort(&fWork[0],&fWork[digit.GetSampleCount()]);
+    double baseline = fWork[digit.GetSampleCount()/2];
+
+    // Find the magnitude of noise for this channel.
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        fWork[i] = std::abs(fDest[i] - baseline);
+    }
+    std::sort(&fWork[0],&fWork[digit.GetSampleCount()]);
+    int inoise = 0.7*digit.GetSampleCount();
+    double noise = fWork[inoise];
+
+    // Specify the threshold in terms of standard deviations of the noise.
+    // Peaks less than this are rejected as noise.
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        TH1F* destHist 
-            = new TH1F((digit.GetChannelId().AsString()+"-dest").c_str(),
-                       ("Peaks found for " 
-                        + digit.GetChannelId().AsString()).c_str(),
-                       digit.GetSampleCount(),
-                       digit.GetFirstSample(), digit.GetLastSample());
-        for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-            destHist->SetBinContent(i+1,fDest[i]);
-        }
+    TH1F* destHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-peaks").c_str(),
+                   ("Peaks found for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        destHist->SetBinContent(i+1,fDest[i]);
+    }
 #endif
         
     // Get the peak positions, and determine which ones are above threshold.
@@ -227,8 +266,13 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         if (xx[i] > digit.GetSampleCount()-digitEndSkip - 1) continue;
         // Check the peak size and deconvolution power.
         int index = (int) (xx[i] + 0.5);
+        // Apply a cut to the overall peak size. (The digit has had the
+        // baseline remove and is in units of charge.
         if (digit.GetSample(index) < fPeakMaximumCut) continue;
+        // Apply a cut to the minimum value of the found peak.
         if (fDest[index] < fPeakDeconvolutionCut) continue;
+        // Apply a cut based on the noise in the peak search.
+        if (fDest[index] < noise*fNoiseThresholdCut + baseline) continue;
         peaks.push_back(xx[i]);
     }
 
@@ -242,6 +286,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // found, then the digit is split at the halfway point between the peaks.
     // If the peak is too wide, then the peak is split.
     double chargeThresh = 0.1;
+    int hitCount = 0;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
         int i = (int) (*p + 0.5);
@@ -332,6 +377,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                                                    (split > 1));
             if (!newHit) continue;
             hits.push_back(newHit);
+            if (++hitCount > 50) return;
         }            
     }
 }

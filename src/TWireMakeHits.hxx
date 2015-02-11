@@ -68,6 +68,9 @@ private:
     /// A buffer for the found peaks.
     float* fDest;
 
+    /// A buffer for local work.
+    float* fWork;
+
     /// The charge required at the peak for it to be considered valid.
     double fPeakMaximumCut;
 
@@ -75,6 +78,11 @@ private:
     /// considered valid.
     double fPeakDeconvolutionCut;
 
+    /// The noise threshold in "RMS" of the measured noise for the channel
+    /// (i.e. "sigma" fluctuation before it's not considered noise).  The
+    /// noise is not Gaussian, so a 3 sigma cut isn't 99.8 percent.
+    double fNoiseThresholdCut;
+    
     /// Set the limit on how wide a peak can be in drift time before it's
     /// split into multiple hits.  Peaks wider than this are split up into
     /// multiple hits by drift time.
