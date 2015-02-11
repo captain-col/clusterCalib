@@ -163,6 +163,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
@@ -252,6 +253,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 
@@ -263,9 +265,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
             deconvHist->SetBinContent(i+1,deconv->GetSample(i));
         }
-        // TSpectrum spectrum;
-        // TSpectrum::SetDeconIterations(30);
-        // spectrum.Search(deconvHist,2.0,"",0.01);
 #endif
 
         makeWireHits(*driftHits,*deconv,t0,
@@ -312,7 +311,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 #endif
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     static TH2F* gClusterCalibXTime = NULL;
