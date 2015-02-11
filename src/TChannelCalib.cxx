@@ -111,8 +111,9 @@ double CP::TChannelCalib::GetPulseShape(CP::TChannelId id, double t) {
 
 #ifdef SKIP_DATA_CALIBRATION
     if (t < 0.0) return 0.0;
-    if (t < GetTimeConstant(id)) return 1.0;
-    return 0.0;
+    double arg = std::pow(t/(1.0*unit::microsecond), 2.0);
+    double v = (arg<40)? arg*std::exp(-arg): 0.0;
+    return v;
 #endif
     
     CaptError("Unknown channel: " << id);
