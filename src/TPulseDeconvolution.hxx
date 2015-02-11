@@ -71,6 +71,14 @@ private:
     /// then it may pay to have more than one.
     TWireResponse* fWireResponse;
 
+    /// An optimal filter can be applied to reduce the effect of noise.  This
+    /// sets the frequency cut-off as a fraction of the Nyquist frequency.  A
+    /// "cut" of 1.0 means no cut-off.  Since the Nyquist frequency is
+    /// nominally 1 MHz and our signal is about 500 kHz (i.e. half the Nyquist
+    /// frequency), the nominal cut value will probably be somewhere between
+    /// 0.8 and 0.95.
+    double fNyquistFraction;
+    
     /// Hold the number of side band samples to use during the smoothing.
     /// This is set using clusterCalib.smoothing.wire, and is calculated to be
     /// (clusterCalib.smoothing.wire + 1).

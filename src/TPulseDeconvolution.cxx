@@ -36,6 +36,8 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fInverseFFT = NULL;
     fElectronicsResponse = NULL;
     fWireResponse = NULL;
+    fNyquistFraction = CP::TRuntimeParameters::Get().GetParameterD(
+        "clusterCalib.deconvolution.nyquistFraction");
     fBaselineSigma = 0.0;
     fSampleSigma = 0.0;
     Initialize();
@@ -145,8 +147,19 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         double rl, im;
         fFFT->GetPointComplex(i,rl,im);
         std::complex<double> c(rl,im);
-        c /= fElectronicsResponse->GetFrequency(i);
+        std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
+        c /= freq;
         c /= fWireResponse->GetFrequency(i);
+        double nyquistWidth = 1.0 - fNyquistFraction;
+        if (nyquistWidth < 1.0 && nyquistWidth > 0.0) {
+            nyquistWidth *= 0.5*fSampleCount;
+            double d = 1.0*(i - 0.5*fSampleCount)/nyquistWidth;
+            double nFreq = std::exp(-0.5*d*d);
+            double f = std::abs(freq);
+            if (f < 1E-5) f = 1E-5;
+            double filter = f*f/(f*f + nFreq*nFreq);
+            c *= filter;
+        }
         fInverseFFT->SetPoint(i,c.real(), c.imag());
     }
     fInverseFFT->Transform();
@@ -453,7 +466,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* bkgHist 
-        = new TH1F((digit.GetChannelId().AsString()+"-bkg").c_str(),
+        = new TH1F((digit.GetChannelId().AsString()+"-baseline").c_str(),
                    ("Estimated baseline for " 
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
