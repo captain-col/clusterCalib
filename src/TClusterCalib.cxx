@@ -163,6 +163,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -397,7 +398,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
     
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     static TH1F* gClusterCalibVRatio = NULL;
