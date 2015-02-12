@@ -164,7 +164,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::TDigitProxy proxy(*drift,d);
         std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* calibHist 
@@ -254,7 +253,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 

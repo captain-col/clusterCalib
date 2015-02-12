@@ -241,7 +241,6 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
     // Specify the threshold in terms of standard deviations of the noise.
     // Peaks less than this are rejected as noise.
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist 
