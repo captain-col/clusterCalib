@@ -74,7 +74,7 @@ double CP::TChannelCalib::GetGainConstant(CP::TChannelId id, int order) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
-    if (order == 1) return 4.7*unit::mV/unit::fC;
+    if (order == 1) return (14.0*unit::mV/unit::fC);
     return 2048.0;
 #endif
 
