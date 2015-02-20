@@ -91,7 +91,6 @@ bool CP::TElectronicsResponse::Calculate() {
         fFrequency[i] = std::complex<double>(rl,im);
     }
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* elecResp = new TH1F("elecResp",
@@ -102,9 +101,9 @@ bool CP::TElectronicsResponse::Calculate() {
         elecResp->Fill(i+0.5, std::abs(fResponse[i]));
     }
     TH1F* elecFreq = new TH1F("elecFreq",
-                                       "Electronics Frequency",
-                                       fFrequency.size(),
-                                       0.0, 1.0*fFrequency.size());
+                              "Electronics Frequency",
+                              fFrequency.size(),
+                              0.0, 1.0*fFrequency.size());
     for (std::size_t i=0; i<fFrequency.size(); ++i) {
         elecFreq->Fill(i+0.5, std::abs(fFrequency[i]));
     }
