@@ -71,34 +71,48 @@ private:
     /// then it may pay to have more than one.
     TWireResponse* fWireResponse;
 
-    /// An optimal filter can be applied to reduce the effect of noise.  This
-    /// sets the frequency cut-off as a fraction of the Nyquist frequency.  A
-    /// "cut" of 1.0 means no cut-off.  Since the Nyquist frequency is
-    /// nominally 1 MHz and our signal is about 500 kHz (i.e. half the Nyquist
-    /// frequency), the nominal cut value will probably be somewhere between
-    /// 0.8 and 0.95.
+    /// An optimal filter can be applied to reduce the effect of high
+    /// frequency noise.  This sets the frequency cut-off as a fraction of the
+    /// Nyquist frequency.  A "cut" of 1.0 means no cut-off.  Since the
+    /// Nyquist frequency is nominally 1 MHz and our signal is about 500 kHz
+    /// (i.e. half the Nyquist frequency), the nominal cut value will probably
+    /// be somewhere between 0.8 and 0.95.  It is set using the parameter
+    /// clusterCalib.deconvolution.nyquistFraction.
     double fNyquistFraction;
+
+    /// The peak power for the noise model used in the optimal filter.  The
+    /// peak power of the noise model is specified in arbitrary units, and due
+    /// to the normalization of the electronics response model should have a
+    /// value near 1.0 (i.e. the expected typical value will be between zero
+    /// and two).
+    double fNoisePower;
     
-    /// Hold the number of side band samples to use during the smoothing.
-    /// This is set using clusterCalib.smoothing.wire, and is calculated to be
-    /// (clusterCalib.smoothing.wire + 1).
+    /// Hold the range of the loop used to smooth a sample. This is set using
+    /// clusterCalib.deconvolution.smoothing which sets the number of
+    /// side-band samples to be used.  The loop range is zero to max(1,
+    /// clusterCalib.deconvolution.smoothing+1), so smoothing can be disabled
+    /// by using a value of zero (that means no side-band samples are used).
     int fSmoothingWindow;
 
     /// Hold the cut for random fluctuations.  This is in units of the RMS of
-    /// the sample-to-sample fluctuations.
+    /// the sample-to-sample fluctuations.  This is set using
+    /// clusterCalib.deconvolution.fluctuationCut.
     double fFluctuationCut;
 
     /// Hold the cut on how high the baseline can get.  This is in units of
-    /// the baseline standard deviation relative to the median baseline.
+    /// the baseline standard deviation relative to the median baseline.  This
+    /// is set using clusterCalib.deconvolution.baselineCut.
     double fBaselineCut;
 
     /// When determining where the peaks probably are so they can be excluded
     /// from the baseline estimate, this is the number of samples that have to
-    /// stay inside the fFluctuationCut.
+    /// stay inside the fFluctuationCut.  This is set using the parameter
+    /// clusterCalib.deconvolution.coherenceZone.
     int fCoherenceZone;
 
     /// The number of samples that have to be within fFluctuationCut for a
-    /// region to be considered "coherent".
+    /// region to be considered "coherent".  This is set using the parameter
+    /// clusterCalib.deconvolutioncoherenceCut.
     double fCoherenceCut;
 
     /// The baseline sigma relative to the average baseline.

@@ -38,6 +38,8 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fWireResponse = NULL;
     fNyquistFraction = CP::TRuntimeParameters::Get().GetParameterD(
         "clusterCalib.deconvolution.nyquistFraction");
+    fNoisePower = CP::TRuntimeParameters::Get().GetParameterD(
+        "clusterCalib.deconvolution.noisePower");
     fBaselineSigma = 0.0;
     fSampleSigma = 0.0;
     Initialize();
@@ -94,43 +96,20 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
                              calib.GetChannelId());
 
     // Copy the digit into the buffer for the FFT and then apply the
-    // transformation.
+    // transformation.  The FFT buffer may be longer than the number of
+    // samples read for this digit.  If there aren't enough samples, then make
+    // sure the FFT buffer smoothly goes to zero.
     for (int i=0; i<fSampleCount; ++i) {
+        // Apply error checking for invalid calibration results.  This should
+        // never happen (and after fixing bugs it doesn't seem to).
         double p = calib.GetSample(i);
         if (!std::isfinite(p)) {
             CaptError("Channel " << calib.GetChannelId() 
                       << " w/ invalid sample " << i);
         }
-        if (i < (int) calib.GetSampleCount()) {
-            // Apply smoothing to the input signal.  This is controlled with
-            // clusterCalib.smoothing.wire
-            double val = 0.0;
-            double weight = 0.0;
-            for (int j=0; j<fSmoothingWindow; ++j) {
-               double w = fSmoothingWindow - j;
-                if (j == 0) {
-                    val += w * calib.GetSample(i);
-                    weight += w;
-                    continue;
-                }
-                if (0 <= (i-j)) {
-                    val += w * calib.GetSample(i-j);
-                    weight += w;
-                }
-                if ((i+j) < (int) calib.GetSampleCount()) {
-                    val += w * calib.GetSample(i+j);
-                    weight += w;
-                }
-            }
-            val /= weight;
-            // Make sure that the signal is zero at the very start.  This
-            // distorts the beginning of the signal, but there is a long
-            // buffer of noise there anyway.
-            double scale = 10.001;
-            if (i<scale) val *= 1.0*i/scale;
-            fFFT->SetPoint(i,val);
-        }
-        else {
+        // Check if the FFT buffer is being filled past the end of the digit.
+        // If it is, then smoothly go to zero.
+        if ((int) calib.GetSampleCount() <= i) {
             int last = calib.GetSampleCount()-1;
             double scale = 10.0;
             double delta = (i-last)/scale; delta *= delta;
@@ -139,10 +118,41 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
                 val = fFFT->GetPointReal(last,kTRUE)*std::exp(-delta);
             }
             fFFT->SetPoint(i,val);
+            continue;
         }
+        // Apply smoothing to the input signal.  The signal is not smoothed if
+        // fSmoothingWindow is one.
+        double val = 0.0;
+        double weight = 0.0;
+        for (int j=0; j<fSmoothingWindow; ++j) {
+            double w = fSmoothingWindow - j;
+            if (j == 0) {
+                val += w * calib.GetSample(i);
+                weight += w;
+                continue;
+            }
+            if (0 <= (i-j)) {
+                val += w * calib.GetSample(i-j);
+                weight += w;
+            }
+            if ((i+j) < (int) calib.GetSampleCount()) {
+                val += w * calib.GetSample(i+j);
+                weight += w;
+            }
+        }
+        val /= weight;
+        // Make sure that the signal is zero at the very start.  This
+        // distorts the beginning of the signal, but there is a long
+        // buffer of noise there anyway.
+        double scale = 10.001;
+        if (i<scale) val *= 1.0*i/scale;
+        fFFT->SetPoint(i,val);
     }
+
     fFFT->Transform();
     
+    // Use the transformed values to do the deconvolution.  This fills the
+    // buffer for the inverse FFT.
     for (int i=0; i<fSampleCount; ++i) {
         double rl, im;
         fFFT->GetPointComplex(i,rl,im);
@@ -150,11 +160,13 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
         c /= freq;
         c /= fWireResponse->GetFrequency(i);
+        // Possibly apply Guassian notch filter around the nyquist
+        // frequency.  This is effectively a low pass filter.
         double nyquistWidth = 1.0 - fNyquistFraction;
-        if (nyquistWidth < 1.0 && nyquistWidth > 0.0) {
+        if (0.0 < nyquistWidth && nyquistWidth < 1.0 && fNoisePower > 0.0) {
             nyquistWidth *= 0.5*fSampleCount;
             double d = 1.0*(i - 0.5*fSampleCount)/nyquistWidth;
-            double nFreq = std::exp(-0.5*d*d);
+            double nFreq = fNoisePower*std::exp(-0.5*d*d);
             double f = std::abs(freq);
             if (f < 1E-5) f = 1E-5;
             double filter = f*f/(f*f + nFreq*nFreq);
@@ -193,7 +205,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
 #endif
         
-    // Find the sample median.
+    // Find the sample median and it's "sigma".
     for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
         diff[i] = digit.GetSample(i);
     }
@@ -203,6 +215,12 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     double baselineSigma = diff[0.16*digit.GetSampleCount()];
     baselineSigma = std::abs(baselineSigma-baselineMedian);
     
+    // Define a maximum separation between the sample and the median sample.
+    // If it's more than this, then the sample is not baseline.  This is one
+    // sided.  This is looking at the overall fluctation of the baseline and
+    // prevents large plateaus from being cut.
+    double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
+
     // Find the median sample to sample difference.  Regions where the samples
     // stay withing a small difference don't have a "feature of interest".
     for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
@@ -212,18 +230,18 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     std::sort(diff.begin(), diff.end());
 
     // The 52 percentile is a of the sample-to-sample differences is a good
-    // estimate of the distribution sigma.  This was checked empirically for
-    // the normal distribution.
+    // estimate of the distribution sigma.  The 52% "magic" number comes
+    // looking at the differences of two samples (that gives a sqrt(2)) and
+    // wanting the RMS (which is the 68%).  This gives 48% (which is
+    // 68%/sqrt(2)).  Then because of the ordering after the sort, the bin we
+    // look at is 1.0-52%.
     fSampleSigma = diff[0.52*digit.GetSampleCount()];
 
     // Define a cut for the maximum change between two samples.  If the
     // difference is greater than this, then the samples are not "coherent".
+    // If too many samples in a "coherence zone" are not considered coherent,
+    // then the sample is not considered part of the baseline.
     double deltaCut = fSampleSigma*fFluctuationCut;
-
-    // Define a maximum separation between the sample relative to the median
-    // sample.  If it's more than this, then the sample is not baseline.  This
-    // is one sided.
-    double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
 
     // Define a cut for the maximum drift in one direction within a coherence
     // zone.  If the drift is more than this, then the region is not baseline.
@@ -234,7 +252,8 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
     double driftCut = fFluctuationCut * driftSigma;
 
-    // Refill the differences...
+    // Refill the differences... This has to be done since we are reusing an
+    // existing variable (instead of allocating extra space).
     diff[0] = 0;
     for (std::size_t i=1; i < diff.size(); ++i) {
         double delta = std::abs(digit.GetSample(i) - digit.GetSample(i-1));
@@ -329,16 +348,22 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
+        // If a region has changed too far in one direction, then it's not
+        // part of the baseline.
         if (drift[i] > driftCut) {
             continue;
         }
         
-        // This is in a region where the signal is consistent with statistical
-        // fluctuations, so make it the baseline.
+        // Look at the number of samples since a measurement was more than a
+        // statistical fluctuation.  If it's only been a few samples
+        // (i.e. less than fCoherenceCut samples) then this sample isn't part
+        // of the baseline.
         if (coh < fCoherenceCut) {
             continue;
         }
 
+        // We've found a sample that should be considered part of the
+        // baseline, so add it to the vector for book keeping.
         int offset = (int) (0.5*fCoherenceZone);
         baseline[i-offset] = digit.GetSample(i-offset);
     }
@@ -371,16 +396,22 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
             continue;
         }
 
+        // If a region has changed too far in one direction, then it's not
+        // part of the baseline.
         if (drift[i] > driftCut) {
             continue;
         }
         
-        // This is in a region where the signal is consistent with statistical
-        // fluctuations, so make it the baseline.
+        // Look at the number of samples since a measurement was more than a
+        // statistical fluctuation.  If it's only been a few samples
+        // (i.e. less than fCoherenceCut samples) then this sample isn't part
+        // of the baseline.
         if (coh < fCoherenceCut) {
             continue;
         }
 
+        // We've found a sample that should be considered part of the
+        // baseline, so add it to the vector for book keeping.
         int offset = (int) (0.5*fCoherenceZone);
         baseline[i+offset] = digit.GetSample(i+offset);
 
