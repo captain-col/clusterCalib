@@ -50,7 +50,6 @@ public:
     }
 
     bool operator () (CP::TEvent& event) {
-        // Make sure the electronics simulated is created.
         if (!fClusterCalib) fClusterCalib = new CP::TClusterCalib();
 
         // Set the action for the calibrated pulse digits.
