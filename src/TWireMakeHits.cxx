@@ -208,12 +208,12 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // most sensitive parameter is the expected peak width.  The width only
     // affects the search since the actual peak width is calculated after the
     // peaks are found.
-    double sigma = 2.0;
+    double sigma = 1.0;
     double threshold = 1;
     bool removeBkg = false;
     int iterations = 15;
     bool useMarkov = true;
-    int window = 3;
+    int window = 1;
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
                                         sigma, threshold,
                                         removeBkg, iterations, 
@@ -241,6 +241,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
     // Specify the threshold in terms of standard deviations of the noise.
     // Peaks less than this are rejected as noise.
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist 
