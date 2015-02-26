@@ -89,7 +89,6 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         Initialize();
     }
 
-
     fElectronicsResponse->Calculate(ev->GetContext(),
                                     calib.GetChannelId());
     fWireResponse->Calculate(ev->GetContext(),
@@ -150,7 +149,24 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     }
 
     fFFT->Transform();
-    
+
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* fftHist 
+        = new TH1F((calib.GetChannelId().AsString()+"-fft").c_str(),
+                   ("FFT for " 
+                    + calib.GetChannelId().AsString()).c_str(),
+                   fSampleCount,
+                   0,fSampleCount);
+    for (std::size_t i = 0; i<fSampleCount; ++i) {
+        double rl, im;
+        fFFT->GetPointComplex(i,rl,im);
+        std::complex<double> c(rl,im);
+        fftHist->SetBinContent(i+1, std::abs(c));
+    }
+#endif
+        
     // Use the transformed values to do the deconvolution.  This fills the
     // buffer for the inverse FFT.
     for (int i=0; i<fSampleCount; ++i) {
@@ -158,20 +174,29 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         fFFT->GetPointComplex(i,rl,im);
         std::complex<double> c(rl,im);
         std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
-        c /= freq;
-        c /= fWireResponse->GetFrequency(i);
-        // Possibly apply Guassian notch filter around the nyquist
-        // frequency.  This is effectively a low pass filter.
-        double nyquistWidth = 1.0 - fNyquistFraction;
-        if (0.0 < nyquistWidth && nyquistWidth < 1.0 && fNoisePower > 0.0) {
+        // Possibly apply a noise filter as part of the deconvolution.
+        if (0<fNyquistFraction && fNyquistFraction<1.0 && fNoisePower>0.0) {
+            // The power at this frequence in the impulse response.
+            double impulse = std::abs(freq);
+            if (impulse < 1E-5) impulse = 1E-5;
+            double nyquistWidth = 1.0 - fNyquistFraction;
             nyquistWidth *= 0.5*fSampleCount;
             double d = 1.0*(i - 0.5*fSampleCount)/nyquistWidth;
             double nFreq = fNoisePower*std::exp(-0.5*d*d);
-            double f = std::abs(freq);
-            if (f < 1E-5) f = 1E-5;
-            double filter = f*f/(f*f + nFreq*nFreq);
+            double nsRatio = nFreq/impulse;
+            double filter = impulse*impulse/(impulse*impulse + nsRatio);
             c *= filter;
         }
+        else if (fNyquistFraction<0.0 && fNoisePower>0.0) {
+            // The power at this frequence in the impulse response.
+            double impulse = std::abs(freq);
+            if (impulse < 1E-5) impulse = 1E-5;
+            double nsRatio =fNoisePower/impulse;
+            double filter = impulse*impulse/(impulse*impulse + nsRatio);
+            c *= filter;
+        }
+        c /= freq;
+        c /= fWireResponse->GetFrequency(i);
         fInverseFFT->SetPoint(i,c.real(), c.imag());
     }
     fInverseFFT->Transform();

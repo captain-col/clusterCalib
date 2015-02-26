@@ -45,7 +45,7 @@ before applying the deconvolution.  The value controls the number of
 "side-band" samples to use when smoothing a particular sample.  A value of
 zero means no smoothing.
 
-< clusterCalib.deconvolution.smoothing = 2 >
+< clusterCalib.deconvolution.smoothing = 0 >
 
 The pulse deconvolution will remove the baseline from the pulse.  The base
 line is determined by runs of coherenceZone samples with fluctuations of
@@ -62,12 +62,12 @@ nominally 1 MHz and our signal is about 500 kHz (i.e. half the Nyquist
 frequency), the nominal cut value will probably be somewhere between
 0.8 and 0.95.
 
-< clusterCalib.deconvolution.nyquistFraction = 0.75 >
+< clusterCalib.deconvolution.nyquistFraction = -0.75 >
 
 The amount of "power" in the noise model used by the filter.  This should
 have a value "near" to one.
 
-< clusterCalib.deconvolution.noisePower = 0.0 >
+< clusterCalib.deconvolution.noisePower = 0.10 >
 
 The number of samples inside the coherence zone that vary less than
 fluctuationCut.  If the number is less than this cut, the region is not
