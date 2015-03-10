@@ -9,6 +9,8 @@
 #include <TMCChannelId.hxx>
 #include <HEPUnits.hxx>
 #include <TRuntimeParameters.hxx>
+#include <CaptGeomId.hxx>
+#include <TChannelInfo.hxx>
 
 #define SKIP_DATA_CALIBRATION
 
@@ -35,7 +37,21 @@ bool CP::TChannelCalib::IsBipolarSignal(CP::TChannelId id) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
-    return false;
+    CP::TGeometryId geomId = CP::TChannelInfo::Get().GetGeometry(id);
+    if (!geomId.IsValid()) {
+        CaptError("Channel is not associated with a geometry object: " << id);
+        return false;
+    }
+
+    if (!CP::GeomId::Captain::IsWire(geomId)) {
+        CaptError("Channel " << id << " is not a wire: " << geomId);
+        return false;
+    }
+
+    // The X wires are the collection plane.
+    if (CP::GeomId::Captain::IsXWire(geomId)) return false;
+    
+    return true;
 #endif
 
     CaptError("Unknown channel: " << id);
@@ -103,16 +119,37 @@ double CP::TChannelCalib::GetPulseShape(CP::TChannelId id, double t) {
             = ev->Get<CP::TRealDatum>("~/truth/elecSimple/shape");
         double peakingTime = (*shapeVect)[index];
 
+        // Get the rising edge shape.
+        CP::THandle<CP::TRealDatum> riseVect
+            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/shapeRise");
+        double riseShape = (*riseVect)[index];
+        
+        // Get the rising edge shape.
+        CP::THandle<CP::TRealDatum> fallVect
+            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/shapeFall");
+        double fallShape = (*fallVect)[index];
         
         double arg = t/peakingTime;
+        if (arg < 1.0) arg = std::pow(arg,riseShape);
+        else arg = std::pow(arg,fallShape);
+        
         double v = (arg<40)? arg*std::exp(-arg): 0.0;
         return v;
     }
 
 #ifdef SKIP_DATA_CALIBRATION
     if (t < 0.0) return 0.0;
-    double arg = std::pow(t/(1.0*unit::microsecond), 2.0);
+
+    double peakingTime = 1.0*unit::microsecond;
+    double riseShape = 2.0;
+    double fallShape = 2.0;
+
+    double arg = t/peakingTime;
+    if (arg < 1.0) arg = std::pow(arg,riseShape);
+    else arg = std::pow(arg,fallShape);
+    
     double v = (arg<40)? arg*std::exp(-arg): 0.0;
+
     return v;
 #endif
     
