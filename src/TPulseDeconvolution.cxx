@@ -1,6 +1,7 @@
 #include "TPulseDeconvolution.hxx"
 #include "TElectronicsResponse.hxx"
 #include "TWireResponse.hxx"
+#include "TNoiseFilter.hxx"
 #include "TChannelCalib.hxx"
 
 #include <TCalibPulseDigit.hxx>
@@ -36,10 +37,11 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fInverseFFT = NULL;
     fElectronicsResponse = NULL;
     fWireResponse = NULL;
-    fNyquistFraction = CP::TRuntimeParameters::Get().GetParameterD(
-        "clusterCalib.deconvolution.nyquistFraction");
-    fNoisePower = CP::TRuntimeParameters::Get().GetParameterD(
+    double noisePower = CP::TRuntimeParameters::Get().GetParameterD(
         "clusterCalib.deconvolution.noisePower");
+    double spikePower = CP::TRuntimeParameters::Get().GetParameterD(
+        "clusterCalib.deconvolution.spikePower");
+    fNoiseFilter = new CP::TNoiseFilter(noisePower, spikePower);
     fBaselineSigma = 0.0;
     fSampleSigma = 0.0;
     Initialize();
@@ -150,6 +152,11 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
 
     fFFT->Transform();
 
+    /// Make an optimal filter based on the electronics response, and the
+    /// observed signal.
+    fNoiseFilter->Calculate(calib.GetChannelId(), *fElectronicsResponse,
+                            *fWireResponse, *fFFT);
+
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -167,36 +174,44 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     }
 #endif
         
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* respHist 
+        = new TH1F((calib.GetChannelId().AsString()+"-respFFT").c_str(),
+                   ("FFT of Response for " 
+                    + calib.GetChannelId().AsString()).c_str(),
+                   fSampleCount,
+                   0,fSampleCount);
+    for (std::size_t i = 0; i<fSampleCount; ++i) {
+        std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
+        std::complex<double> wire = fWireResponse->GetFrequency(i);
+        std::complex<double> c = freq*wire;
+        respHist->SetBinContent(i+1, std::abs(c));
+    }
+#endif
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* filterHist 
+        = new TH1F((calib.GetChannelId().AsString()+"-filter").c_str(),
+                   ("Filter for " 
+                    + calib.GetChannelId().AsString()).c_str(),
+                   fSampleCount,
+                   0,fSampleCount);
+    for (std::size_t i = 0; i<fSampleCount; ++i) {
+        filterHist->SetBinContent(i+1, fNoiseFilter->GetFilter(i));
+    }
+#endif
+
     // Use the transformed values to do the deconvolution.  This fills the
     // buffer for the inverse FFT.
     for (int i=0; i<fSampleCount; ++i) {
         double rl, im;
         fFFT->GetPointComplex(i,rl,im);
         std::complex<double> c(rl,im);
-        std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
-        // Possibly apply a noise filter as part of the deconvolution.
-        if (0<fNyquistFraction && fNyquistFraction<1.0 && fNoisePower>0.0) {
-            // The power at this frequence in the impulse response.
-            double impulse = std::abs(freq);
-            if (impulse < 1E-5) impulse = 1E-5;
-            double nyquistWidth = 1.0 - fNyquistFraction;
-            nyquistWidth *= 0.5*fSampleCount;
-            double d = 1.0*(i - 0.5*fSampleCount)/nyquistWidth;
-            double nFreq = fNoisePower*std::exp(-0.5*d*d);
-            double nsRatio = nFreq/impulse;
-            double filter = impulse*impulse/(impulse*impulse + nsRatio);
-            c *= filter;
-        }
-        else if (fNyquistFraction<0.0 && fNoisePower>0.0) {
-            // The power at this frequence in the impulse response.
-            double impulse = std::abs(freq);
-            if (impulse < 1E-5) impulse = 1E-5;
-            double nsRatio =fNoisePower/impulse;
-            double filter = impulse*impulse/(impulse*impulse + nsRatio);
-            c *= filter;
-        }
-        c /= freq;
+        c /= fElectronicsResponse->GetFrequency(i);
         c /= fWireResponse->GetFrequency(i);
+        c *= fNoiseFilter->GetFilter(i);
         fInverseFFT->SetPoint(i,c.real(), c.imag());
     }
     fInverseFFT->Transform();
@@ -205,6 +220,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     // Set the samples into the calibrated pulse digit.
     for (std::size_t i=0; i<deconv->GetSampleCount(); ++i) {
         double v = fInverseFFT->GetPointReal(i)/fSampleCount;
+
         deconv->SetSample(i,v);
     }
 

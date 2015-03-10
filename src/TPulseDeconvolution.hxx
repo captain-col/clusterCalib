@@ -8,6 +8,7 @@ namespace CP {
     class TPulseDeconvolution;
     class TElectronicsResponse;
     class TWireResponse;
+    class TNoiseFilter;
 };
 
 class TVirtualFFT;
@@ -78,15 +79,17 @@ private:
     /// (i.e. half the Nyquist frequency), the nominal cut value will probably
     /// be somewhere between 0.8 and 0.95.  It is set using the parameter
     /// clusterCalib.deconvolution.nyquistFraction.
+    TNoiseFilter* fNoiseFilter;
+    
+    /// An optimal filter can be applied to reduce the effect of high
+    /// frequency noise.  This sets the frequency cut-off as a fraction of the
+    /// Nyquist frequency.  A "cut" of 1.0 means no cut-off.  Since the
+    /// Nyquist frequency is nominally 1 MHz and our signal is about 500 kHz
+    /// (i.e. half the Nyquist frequency), the nominal cut value will probably
+    /// be somewhere between 0.8 and 0.95.  It is set using the parameter
+    /// clusterCalib.deconvolution.nyquistFraction.
     double fNyquistFraction;
 
-    /// The peak power for the noise model used in the optimal filter.  The
-    /// peak power of the noise model is specified in arbitrary units, and due
-    /// to the normalization of the electronics response model should have a
-    /// value near 1.0 (i.e. the expected typical value will be between zero
-    /// and two).
-    double fNoisePower;
-    
     /// Hold the range of the loop used to smooth a sample. This is set using
     /// clusterCalib.deconvolution.smoothing which sets the number of
     /// side-band samples to be used.  The loop range is zero to max(1,
