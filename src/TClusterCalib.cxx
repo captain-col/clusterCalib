@@ -95,7 +95,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                 calibHist->SetBinContent(i+1,calib->GetSample(i));
             }
 #endif
-            
+
         }
         if (pmtHits->size() > 0) {
             for (CP::THitSelection::iterator p = pmtHits->begin();
@@ -166,6 +166,21 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
+        const CP::TPulseDigit* raw = proxy.As<const CP::TPulseDigit>();
+        TH1F* rawHist 
+            = new TH1F((raw->GetChannelId().AsString()+"-raw").c_str(),
+                       ("Raw ADC for " 
+                        + raw->GetChannelId().AsString()).c_str(),
+                       raw->GetSampleCount(),
+                       raw->GetFirstSample(),
+                       raw->GetFirstSample()+raw->GetSampleCount());
+        for (std::size_t i = 0; i<raw->GetSampleCount(); ++i) {
+            rawHist->SetBinContent(i+1,raw->GetSample(i));
+        }
+#endif
+        
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
         TH1F* calibHist 
             = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
                        ("Calibration for " 
@@ -177,6 +192,19 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+            TH1F* projHist 
+                = new TH1F((calib->GetChannelId().AsString()+"-proj").c_str(),
+                           ("Projection for " 
+                            + calib->GetChannelId().AsString()).c_str(),
+                           100, -50000.0, 50000.0);
+            for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
+                projHist->Fill(calib->GetSample(i));
+            }
+#endif
+       
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -248,6 +276,43 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             default: std::exit(1);
             }
             hist->Fill(fCalibrate->GetSigma());
+        }
+#endif
+
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        static TH1F* gClusterCalibXGaussian = NULL;
+        static TH1F* gClusterCalibVGaussian = NULL;
+        static TH1F* gClusterCalibUGaussian = NULL;
+        if (!gClusterCalibXGaussian) {
+            gClusterCalibXGaussian
+                = new TH1F("clusterCalibXGaussian",
+                           "Gaussian sigma for the X wires",
+                           200, 0.0, 100);
+        }
+        if (!gClusterCalibUGaussian) {
+            gClusterCalibUGaussian
+                = new TH1F("clusterCalibUGaussian",
+                           "Gaussian sigma for the U wires",
+                           200, 0.0, 100);
+        }
+        if (!gClusterCalibVGaussian) {
+            gClusterCalibVGaussian 
+                = new TH1F("clusterCalibVGaussian",
+                           "Gaussian sigma for the V wires",
+                           200, 0.0, 100);
+        }
+        
+        {
+            TH1F* hist = NULL;
+            switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
+            case 0: hist = gClusterCalibXGaussian; break;
+            case 1: hist = gClusterCalibVGaussian; break;
+            case 2: hist = gClusterCalibUGaussian; break;
+            default: std::exit(1);
+            }
+            hist->Fill(fCalibrate->GetGaussianSigma());
         }
 #endif
 

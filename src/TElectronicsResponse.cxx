@@ -93,17 +93,19 @@ bool CP::TElectronicsResponse::Calculate() {
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* elecResp = new TH1F("elecResp",
-                              "Electronics Response",
-                              fResponse.size(),
-                              0.0, 1.0*fResponse.size());
+    TH1F* elecResp = new TH1F(
+        (fChannelId.AsString()+"-elec").c_str(),
+        ("Electronics Response for " + fChannelId.AsString()).c_str(),
+        fResponse.size(),
+        0.0, 1.0*fResponse.size());
     for (std::size_t i=0; i<fResponse.size(); ++i) {
         elecResp->Fill(i+0.5, std::abs(fResponse[i]));
     }
-    TH1F* elecFreq = new TH1F("elecFreq",
-                              "Electronics Frequency",
-                              fFrequency.size(),
-                              0.0, 1.0*fFrequency.size());
+    TH1F* elecFreq = new TH1F(
+        (fChannelId.AsString()+"-elecFFT").c_str(),
+        ("FFT of the electronics Response for" + fChannelId.AsString()).c_str(),
+        fFrequency.size(),
+        0.0, 1.0*fFrequency.size());
     for (std::size_t i=0; i<fFrequency.size(); ++i) {
         elecFreq->Fill(i+0.5, std::abs(fFrequency[i]));
     }
