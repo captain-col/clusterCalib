@@ -208,12 +208,12 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // most sensitive parameter is the expected peak width.  The width only
     // affects the search since the actual peak width is calculated after the
     // peaks are found.
-    double sigma = 1.0;
+    double sigma = 2.0;
     double threshold = 1;
     bool removeBkg = false;
     int iterations = 15;
     bool useMarkov = true;
-    int window = 1;
+    int window = 2;
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
                                         sigma, threshold,
                                         removeBkg, iterations, 
@@ -223,6 +223,19 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         fDest[i] -= signalOffset;
     }
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* destHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-peaks").c_str(),
+                   ("Peaks found for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        destHist->SetBinContent(i+1,fDest[i]);
+    }
+#endif
 
     // Find the new baseline.
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
@@ -237,29 +250,28 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
     std::sort(&fWork[0],&fWork[digit.GetSampleCount()]);
     int inoise = 0.7*digit.GetSampleCount();
+    // A threshold will be set in terms of standard deviations of the noise.
+    // Peaks less than this are rejected as noise.
     double noise = fWork[inoise];
 
-    // Specify the threshold in terms of standard deviations of the noise.
-    // Peaks less than this are rejected as noise.
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* destHist 
-        = new TH1F((digit.GetChannelId().AsString()+"-peaks").c_str(),
-                   ("Peaks found for " 
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        destHist->SetBinContent(i+1,fDest[i]);
-    }
+        static TH1F* gNoiseHistogram = NULL;
+        if (!gNoiseHistogram) {
+            gNoiseHistogram
+                = new TH1F("peakSearchNoise",
+                           "Peak height sigma for all wires",
+                           100, 0.0, 5000);
+        }
+        gNoiseHistogram->Fill(noise);
 #endif
-        
-    // Get the peak positions, and determine which ones are above threshold.
+
+        // Get the peak positions, and determine which ones are above threshold.
     float* xx = spectrum->GetPositionX();
     std::vector<float> peaks;
 
-    int digitEndSkip = 3;
+    int digitEndSkip = 500;
     for (int i=0; i<found; ++i)  {
         // No peaks at the ends of the digit.
         if (xx[i] < digitEndSkip) continue;
