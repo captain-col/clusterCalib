@@ -10,6 +10,7 @@
 #include <TChannelCalib.hxx>
 
 #include <TVirtualFFT.h>
+#include <TH1F.h>
 
 #include <cmath>
 #include <memory>
@@ -60,18 +61,18 @@ bool CP::TWireResponse::Calculate() {
         // plane).
         for (std::size_t i=0; i<fResponse.size(); ++i) {
             fResponse[i] = 0;
-            fFrequency[i] = Frequency(1,0);
+            fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
         }
         fResponse[0] = 1;
         return true;
     case kTimeDerivative:
         CaptLog("Calculate differential function wire response");
         // Use the derivative of the charge w.r.t. time for the wire response.
-        // This is an appropriate approximation for the induction wires
-        // (i.e. the U and V planes).
+        // This is appropriate for the induction wires (i.e. the U and V
+        // planes).
         for (std::size_t i=0; i<fResponse.size(); ++i) {
             fResponse[i] = 0;
-            fFrequency[i] = Frequency(1,0);
+            fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
         }
         fResponse[0] = -1;
         fResponse[fResponse.size()-1] = 1;
@@ -98,8 +99,32 @@ bool CP::TWireResponse::Calculate() {
         fft->GetPointComplex(i,rl,im);
         fFrequency[i] = std::complex<double>(rl,im);
     }
+
+    // The wire response is symetric around zero, so there is no offset.  That
+    // means that the "zero" frequency is zero power, and the deconvolution
+    // blows up with a divide by zero.  Fix that by adding an artificial
+    // offset.  It's 1.0 so it doesn't actually change the deconvolution.
     fFrequency[0] = 1.0;
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* elecResp = new TH1F(
+        (fChannelId.AsString()+"-wire").c_str(),
+        ("Wire Response for " + fChannelId.AsString()).c_str(),
+        fResponse.size(),
+        0.0, 1.0*fResponse.size());
+    for (std::size_t i=0; i<fResponse.size(); ++i) {
+        elecResp->Fill(i+0.5, std::abs(fResponse[i]));
+    }
+    TH1F* elecFreq = new TH1F(
+        (fChannelId.AsString()+"-wireFFT").c_str(),
+        ("FFT of the Wire Response for" + fChannelId.AsString()).c_str(),
+        fFrequency.size(),
+        0.0, 1.0*fFrequency.size());
+    for (std::size_t i=0; i<fFrequency.size(); ++i) {
+        elecFreq->Fill(i+0.5, std::abs(fFrequency[i]));
+    }
+#endif
     return true;
 }
 
@@ -109,8 +134,6 @@ bool CP::TWireResponse::Calculate(const CP::TEventContext& context,
     fChannelId = channel;
 
 
-#define USE_TCHANNEL_CALIB
-#ifdef USE_TCHANNEL_CALIB
     CP::TChannelCalib calib;
     if (calib.IsBipolarSignal(channel) && fWireClass != kTimeDerivative) {
         fWireClass = kTimeDerivative;
@@ -120,38 +143,6 @@ bool CP::TWireResponse::Calculate(const CP::TEventContext& context,
         fWireClass = kDeltaFunction;
         fMustRecalculate = true;
     }
-#else
-    // Get the channel calibrations.
-    if (channel.IsMCChannel()) {
-        TMCChannelId mc(channel);
-        int index = -1;
-        if (mc.GetType() == 0) index = mc.GetSequence();
-        else if (mc.GetType() == 1) index = 3;
-        else {
-            CaptError("Unknown channel: " << mc);
-            return false;
-        }
-        switch (index) {
-        case 0:
-        case 3:
-            if (fWireClass != kDeltaFunction) {
-                fWireClass = kDeltaFunction;
-                fMustRecalculate = true;
-            }
-            break;
-        case 1:
-        case 2:
-            if (fWireClass != kTimeDerivative) {
-                fWireClass = kTimeDerivative;
-                fMustRecalculate = true;
-            }
-            break;
-        default:
-            CaptError("Unknown wire type");
-            std::exit(1);
-        }
-    }
-#endif
-    
+
     return true;
 }
