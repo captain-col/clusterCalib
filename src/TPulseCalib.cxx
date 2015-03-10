@@ -11,7 +11,7 @@
 #include <TEvent.hxx>
 
 CP::TPulseCalib::TPulseCalib() 
-    : fPedestal(0), fAverage(0), fSigma(0) {}
+    : fPedestal(0), fAverage(0), fSigma(0), fGaussianSigma(0) {}
     
 CP::TPulseCalib::~TPulseCalib() {}
 
@@ -36,7 +36,7 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
         + timeOffset;
     CP::TCalibPulseDigit::Vector samples(pulse->GetSampleCount());
 
-    //Use the median as the pedestal
+    // Use the median as the pedestal
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
         double p = pulse->GetSample(i);
         if (!std::isfinite(p)) continue;
@@ -45,13 +45,15 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
     std::sort(samples.begin(), samples.end());
     int iMedian = pulse->GetSampleCount()/2;
     fPedestal = samples[iMedian];
+
+    // Calculate the RMS around the average with the tails thrown out.
     fAverage = 0.0;
     fSigma = 0.0;
     double norm = 0.0;
     int lowBound = 0.05*pulse->GetSampleCount();
     int highBound = 0.95*pulse->GetSampleCount();
     for (int i=lowBound; i<highBound; ++i) {
-        double p = pulse->GetSample(i);
+        double p = samples[i];
         if (!std::isfinite(p)) continue;
         fAverage += p;
         fSigma += p*p;
@@ -63,6 +65,16 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
     if (fSigma>0) fSigma = std::sqrt(fSigma);
     else fSigma = - std::sqrt(-fSigma);
 
+    // Calculate the channel-to-channel Gaussian sigma.
+    for (std::size_t i=1; i< pulse->GetSampleCount(); ++i) {
+        samples[i] = std::abs(pulse->GetSample(i)-pulse->GetSample(i-1));
+    }
+    samples[0] = 0.0;
+    std::sort(samples.begin(), samples.end());
+    iMedian = 0.52*pulse->GetSampleCount();
+    fGaussianSigma = samples[iMedian];
+
+    // Actually apply the calibration.
     for (std::size_t i=0; i< pulse->GetSampleCount(); ++i) {
         double p = 1.0*(pulse->GetSample(i)-fPedestal)/gain/slope;
         samples[i] = p;

@@ -33,6 +33,9 @@ public:
     /// Get the most recent channel sigma.
     double GetSigma() {return fSigma;}
 
+    /// Get the most recent channel to channel Gaussian noise.
+    double GetGaussianSigma() {return fGaussianSigma;}
+    
 private:
 
     /// The most recent pedestal value
@@ -43,5 +46,9 @@ private:
 
     /// The most recent channel sigma.
     double fSigma;
+
+    /// The most recent channe to channel Gaussian noise
+    double fGaussianSigma;
+
 };
 #endif
