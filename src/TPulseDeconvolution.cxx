@@ -157,7 +157,6 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     fNoiseFilter->Calculate(calib.GetChannelId(), *fElectronicsResponse,
                             *fWireResponse, *fFFT);
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* fftHist 
