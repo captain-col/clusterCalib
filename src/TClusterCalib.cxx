@@ -13,11 +13,9 @@
 
 #include <TChannelInfo.hxx>
 
-#include <TVirtualFFT.h>
 #include <TH1F.h>
 #include <TH2F.h>
 #include <TProfile.h>
-#include <TSpectrum.h>
 
 #include <memory>
 
