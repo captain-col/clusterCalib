@@ -36,3 +36,6 @@ library clusterCalib *.cxx *.hxx
 # The main application
 application CLUSTERCALIB ../app/clusterCalib.cxx
 macro_append CLUSTERCALIB_dependencies " clusterCalib " 
+
+application clusterCalib-fft ../app/clusterCalibFFT.cxx
+macro_append clusterCalib-fft_dependencies " clusterCalib " 
