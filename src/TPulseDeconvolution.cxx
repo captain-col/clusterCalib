@@ -157,6 +157,12 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     fNoiseFilter->Calculate(calib.GetChannelId(), *fElectronicsResponse,
                             *fWireResponse, *fFFT);
 
+    // Check if this is a valid channel.
+    if (fNoiseFilter->IsNoisy()) {
+        CaptLog("Noisy channel: " << calib.GetChannelId());
+        return NULL;
+    }
+    
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* fftHist 
@@ -213,13 +219,13 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         c *= fNoiseFilter->GetFilter(i);
         fInverseFFT->SetPoint(i,c.real(), c.imag());
     }
+
     fInverseFFT->Transform();
     std::auto_ptr<CP::TCalibPulseDigit> deconv(new CP::TCalibPulseDigit(calib));
 
     // Set the samples into the calibrated pulse digit.
     for (std::size_t i=0; i<deconv->GetSampleCount(); ++i) {
         double v = fInverseFFT->GetPointReal(i)/fSampleCount;
-
         deconv->SetSample(i,v);
     }
 

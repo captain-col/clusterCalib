@@ -29,8 +29,11 @@ public:
                    TVirtualFFT& measFreq);
     
     /// Return the filter value for a particular frequency bin.
-    double GetFilter(int i) {return fFilter[i];}
+    double GetFilter(int i) const {return fFilter[i];}
     
+    /// Return a boolean whether this channel should be flagged as "noisy"
+    bool IsNoisy() const {return fIsNoisy;} 
+
 private:
     /// The cached filter values.
     std::vector<double> fFilter;
@@ -50,6 +53,10 @@ private:
     /// The maximum deviation of any bin in the FFT from the local average (in
     /// terms of sigma).
     double fSpikePower;
+
+    /// A flag for if this is a noisy channel
+    bool fIsNoisy;
+    
 };
     
 #endif

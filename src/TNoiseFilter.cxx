@@ -4,6 +4,7 @@
 #include "TWireResponse.hxx"
 
 #include <TChannelId.hxx>
+#include <TCaptLog.hxx>
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>
@@ -14,12 +15,14 @@
 CP::TNoiseFilter::~TNoiseFilter() {}
 
 CP::TNoiseFilter::TNoiseFilter(double noisePower, double spikePower)
-    : fNoisePower(noisePower), fSpikePower(spikePower) {}
+    : fNoisePower(noisePower), fSpikePower(spikePower), fIsNoisy(false) {}
 
 void CP::TNoiseFilter::Calculate(CP::TChannelId id,
                                  CP::TElectronicsResponse& elecFreq,
                                  CP::TWireResponse& wireFreq,
                                  TVirtualFFT& measFreq) {
+
+    fIsNoisy = false;
 
     if (fFilter.size() != elecFreq.GetSize()) {
         fFilter.resize(elecFreq.GetSize());
@@ -73,7 +76,7 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
             if (std::abs(j-i) < excludeWindow) continue;
             int index = j % fFilter.size();
             if (index < 0) index += fFilter.size();
-            if (fWork[index] > rawAverage + 2.0*rawSigma) continue;
+            if (fWork[index] > rawAverage + 20.0*rawSigma) continue;
             truncAverage += fWork[index];
             truncSigma += fWork[index]*fWork[index];
             truncWeight += 1.0;
@@ -88,6 +91,18 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
         minPower = std::min(minPower, fAverage[i]);
         maxPower = std::max(maxPower, fAverage[i]);
     }
+
+#ifdef REJECT_NOISY_CHANNELS
+    // Make an estimate of the channel noise.  This should reject anything
+    // where the noise is much beyond 20 ADC counts.
+    double a = minPower/fFilter.size();
+    double b = 2.0*a*a;
+    double c = b*fFilter.size();
+    double d = sqrt(c);
+    if (d > 400.0) {
+        fIsNoisy = true;
+    }
+#endif
     
     // Find the Gaussian noise estimate.
     double noise = fNoisePower;
@@ -102,24 +117,26 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
                    fFilter.size(),
                    0,fFilter.size());
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
-        sigHist->SetBinContent(i+1,fAverage[i] + fSpikePower*fSigma[i]);
+        sigHist->SetBinContent(i+1,fAverage[i]); //  + fSpikePower*fSigma[i]);
     }
 #endif
 
-    for (std::size_t i = 0; i<fFilter.size(); ++i) {
+    int spikeCount = 0;
+    for (std::size_t i = 1; i<fFilter.size(); ++i) {
         double measPower = fWork[i];
         double respPower = std::abs(elecFreq.GetFrequency(i)
                                     *wireFreq.GetFrequency(i));
         double sigPower = fAverage[i];
         // Apply filter for any spikes in the FFT.
         if (fWork[i] > fAverage[i]+fSpikePower*fSigma[i]) {
+            ++spikeCount;
             fFilter[i] *= sigPower*sigPower
                 /(sigPower*sigPower+measPower*measPower);
         }
         // Apply filter for Gaussian Noise.
         fFilter[i] *= respPower*respPower/(respPower*respPower + noise*noise);
     }
-    
+
 }
 
 

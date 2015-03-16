@@ -254,7 +254,18 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // Peaks less than this are rejected as noise.
     double noise = fWork[inoise];
 
-#define FILL_HISTOGRAM
+    // Protect against a "zero" channel.
+    if (noise < 1) {
+        CaptLog("Wire with no signal: " << digit.GetChannelId());
+        return;
+    }
+    // Don't bother with channels that have crazy big noise.
+    if (noise > fPeakDeconvolutionCut) {
+        CaptLog("Wire with large peak noise: " << digit.GetChannelId()
+                << "  noise: " << noise);
+        return;
+    }
+    
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         static TH1F* gNoiseHistogram = NULL;
