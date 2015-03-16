@@ -203,9 +203,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             }
 #endif
        
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
         static TH1F* gClusterCalibXPedestal = NULL;
         static TH1F* gClusterCalibVPedestal = NULL;
         static TH1F* gClusterCalibUPedestal = NULL;
@@ -240,9 +240,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
 
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
         static TH1F* gClusterCalibXSigma = NULL;
         static TH1F* gClusterCalibVSigma = NULL;
         static TH1F* gClusterCalibUSigma = NULL;
@@ -277,9 +277,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
 
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
         static TH1F* gClusterCalibXGaussian = NULL;
         static TH1F* gClusterCalibVGaussian = NULL;
         static TH1F* gClusterCalibUGaussian = NULL;
@@ -316,6 +316,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 
+        if (!deconv.get()) continue;
+        
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         TH1F* deconvHist 
@@ -336,9 +338,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
 
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
     static TH1F* gClusterCalibXCharge = NULL;
     static TH1F* gClusterCalibVCharge = NULL;
     static TH1F* gClusterCalibUCharge = NULL;

@@ -31,9 +31,9 @@ acceptance.  The charge is the charge value at the peak.  The deconvolution
 is the estimated power from the SearchHighRes() output.  The noise is the
 number of RMS sigma above the random noise the signal needs to be.
 
-< clusterCalib.peakSearch.charge = 1000 >
-< clusterCalib.peakSearch.deconvolution = 4000 >
-< clusterCalib.peakSearch.noise = 3.0 >
+< clusterCalib.peakSearch.charge = 2000 >
+< clusterCalib.peakSearch.deconvolution = 3000 >
+< clusterCalib.peakSearch.noise = 4.0 >
 
 Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
@@ -56,7 +56,7 @@ sample-to-sample variations.
 < clusterCalib.deconvolution.fluctuationCut = 3 >
 
 The cut in standard deviations used to find spikes in the FFT.  Large
-spikes are from fixed frequency line noise and are cuts.
+spikes are at fixed frequencies and are filtered..
 
 < clusterCalib.deconvolution.spikePower = 5.0 >
 
