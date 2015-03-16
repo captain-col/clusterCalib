@@ -28,6 +28,7 @@ public:
         fSampleCount = 0;
         fMaxPower = -1000;
         fPrintFile = "";
+        fSampleTime = 500*unit::ns;
     }
 
     virtual ~TCalibHistsLoop() {};
@@ -86,6 +87,8 @@ public:
 
             // Check that the FFT is properly created.
             int nSize = 2*(1+pulse->GetSampleCount()/2);
+            double nyquistFreq = 0.5/fSampleTime;
+            double deltaFreq = 2.0*nyquistFreq/nSize;
             if (!fFFT || nSize != fSampleCount) {
                 if (!fFFT) delete fFFT;
                 fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
@@ -93,7 +96,7 @@ public:
                 fWireHist = new TH2F("wireHist",
                                        "Log10(Power) for all wires",
                                       drift->size(), 0.0, drift->size(),
-                                      nSize/2-1, 2.0*1000000.0/nSize, 1000000);
+                                      nSize/2-1, deltaFreq, nyquistFreq);
                 fWireHist->SetXTitle("Channel");
                 fWireHist->SetYTitle("Frequency (Hz)");
             }
@@ -120,13 +123,13 @@ public:
                 = new TH1F((pulse->GetChannelId().AsString()+"-fft").c_str(),
                            ("FFT for " 
                             + pulse->GetChannelId().AsString()).c_str(),
-                           nSize/2, 0, 1000000.0);
+                           nSize/2-1, deltaFreq, nyquistFreq);
             fftHist->SetYTitle("Power (#frac{ADC^{2}}{#Delta#it{f}})");
             fftHist->SetXTitle("Frequency (Hz)");
 
             std::vector<double> power(nSize/2);
             double amp = 0.0;
-            for (std::size_t i = 0; i<(std::size_t) nSize/2; ++i) {
+            for (std::size_t i = 1; i<(std::size_t) nSize/2; ++i) {
                 double rl, im;
                 fFFT->GetPointComplex(i,rl,im);
                 std::complex<double> c(rl,im);
@@ -134,7 +137,7 @@ public:
                 amp += p;
                 fMaxPower = std::max(fMaxPower,std::log10(p));
                 power[i] = p;
-                fftHist->SetBinContent(i+1, p);
+                fftHist->SetBinContent(i, p);
                 if (p<0.01/nSize) p = 0.01/nSize;
                 fWireHist->SetBinContent(d+1,i,std::log10(p));
             }
@@ -153,12 +156,27 @@ public:
 private:
     /// An fft to get frequencies.
     TVirtualFFT* fFFT;
+
+    /// The number of samples in the FFT.
     int fSampleCount;
 
+    /// The sample time.
+    double fSampleTime;
+
+    /// The power in the maximum bin, used to set a histogram max for display
+    /// purposes.
     double fMaxPower;
+
+    /// A histogram of the noise RMS on each wire.
     TH1F* fNoiseHist;
+
+    /// A histogram of the noise on each wire assuming it's Gaussian
     TH1F* fGaussHist;
+
+    /// The FFT for all wires in an event.
     TH2F* fWireHist;
+
+    /// A file to draw the wire histogram in (usually png).
     std::string fPrintFile;
     
 };
