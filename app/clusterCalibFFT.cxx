@@ -26,7 +26,6 @@ public:
         fNoiseHist = NULL;
         fWireHist = NULL;
         fSampleCount = 0;
-        fMaxPower = -1000;
         fPrintFile = "";
         fSampleTime = 500*unit::ns;
     }
@@ -61,7 +60,6 @@ public:
         if (fPrintFile.size() < 1) return;
 
         gStyle->SetOptStat(0);
-        if (fMaxPower>0.0) fWireHist->SetMaximum(0.0);
         fWireHist->Draw("colz");
         gPad->Update();
         gPad->Print(fPrintFile.c_str());
@@ -77,6 +75,7 @@ public:
             return false;
         }
 
+        std::vector<float> powerRange;
         for (std::size_t d = 0; d < drift->size(); ++d) {
             const CP::TPulseDigit* pulse 
                 = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -84,13 +83,15 @@ public:
                 CaptError("Non-pulse in drift digits");
                 continue;
             }
-
             // Check that the FFT is properly created.
             int nSize = 2*(1+pulse->GetSampleCount()/2);
-            double nyquistFreq = 0.5/fSampleTime;
+            double nyquistFreq = (0.5/fSampleTime)/unit::hertz;
             double deltaFreq = 2.0*nyquistFreq/nSize;
+            
             if (!fFFT || nSize != fSampleCount) {
                 if (!fFFT) delete fFFT;
+                CaptLog("Nyquist frequency: " << nyquistFreq);
+                CaptLog("Frequency bin size: " << deltaFreq);
                 fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
                 fSampleCount = nSize;
                 fWireHist = new TH2F("wireHist",
@@ -99,6 +100,7 @@ public:
                                       nSize/2-1, deltaFreq, nyquistFreq);
                 fWireHist->SetXTitle("Channel");
                 fWireHist->SetYTitle("Frequency (Hz)");
+                powerRange.reserve(drift->size()*nSize/2);
             }
 
             // Find the average pedestal and subtract it.
@@ -135,10 +137,10 @@ public:
                 std::complex<double> c(rl,im);
                 double p = 2.0*std::abs(c*c)/nSize/nSize;
                 amp += p;
-                fMaxPower = std::max(fMaxPower,std::log10(p));
                 power[i] = p;
                 fftHist->SetBinContent(i, p);
-                if (p<0.01/nSize) p = 0.01/nSize;
+                if (p>0.01/nSize) powerRange.push_back(p);
+                else p = 0.01/nSize;
                 fWireHist->SetBinContent(d+1,i,std::log10(p));
             }
 
@@ -147,9 +149,17 @@ public:
             int index = 0.68*power.size();
             amp = power[index]*nSize;
             fGaussHist->Fill(std::sqrt(amp));
-            
         }
 
+        std::sort(powerRange.begin(), powerRange.end());
+        double minPower = powerRange[0.05*powerRange.size()];
+        double maxPower = powerRange[0.98*powerRange.size()];
+        if (minPower < 1E-6) minPower = 1E-6;
+        if (maxPower < 1E-4) maxPower = 1E-4;
+        
+        fWireHist->SetMinimum(std::log10(minPower));
+        fWireHist->SetMaximum(std::log10(maxPower));
+        
         return true;
     }
 
@@ -162,10 +172,6 @@ private:
 
     /// The sample time.
     double fSampleTime;
-
-    /// The power in the maximum bin, used to set a histogram max for display
-    /// purposes.
-    double fMaxPower;
 
     /// A histogram of the noise RMS on each wire.
     TH1F* fNoiseHist;
