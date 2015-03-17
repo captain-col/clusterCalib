@@ -36,23 +36,41 @@ bool CP::TChannelCalib::IsBipolarSignal(CP::TChannelId id) {
         }
     }
 
-#ifdef SKIP_DATA_CALIBRATION
+    /// Get the event context.
+    CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+    if (!ev) {
+        CaptError("No event is loaded so context cannot be set.");
+        throw EChannelCalibUnknownType();
+    }
+    CP::TEventContext context = ev->GetContext();
+
+    /// Get the geometry id for the current wire.
     CP::TGeometryId geomId = CP::TChannelInfo::Get().GetGeometry(id);
     if (!geomId.IsValid()) {
         CaptError("Channel is not associated with a geometry object: " << id);
         return false;
     }
-
     if (!CP::GeomId::Captain::IsWire(geomId)) {
         CaptError("Channel " << id << " is not a wire: " << geomId);
         return false;
     }
 
-    // The X wires are the collection plane.
+    // Check for special runs.  This should really be done with a table, but
+    // for now, it is hardcoded.
+    if (context.IsMiniCAPTAIN()
+        && 4090 <= context.GetRun()
+        && context.GetRun() < 10000000) {
+        // The X wires are disconnected for most of these runs, but return
+        // "unipolar" anyway since it makes other studies easier.
+        if (CP::GeomId::Captain::IsXWire(geomId)) return false;
+        if (CP::GeomId::Captain::IsVWire(geomId)) return false;
+        return true;
+    }
+
+    // Normally, the X wire is the collection, and the other wires (U, V) are
+    // induction (i.e. bipolar).
     if (CP::GeomId::Captain::IsXWire(geomId)) return false;
-    
     return true;
-#endif
 
     CaptError("Unknown channel: " << id);
     throw EChannelCalibUnknownType();
