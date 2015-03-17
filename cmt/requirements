@@ -8,6 +8,7 @@ author Clark McGrew <clark.mcgrew@stonybrook.edu>
 # The packages used by this one.  Only direct dependencies should be
 # included. 
 use captChanInfo
+use calibTables
 use captEvent
 use testBase
 use captainPolicy 
