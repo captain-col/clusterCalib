@@ -1,4 +1,5 @@
 #include "TClusterCalib.hxx"
+#include "TActivityFilter.hxx"
 
 #include <eventLoop.hxx>
 
@@ -7,6 +8,7 @@ class TClusterCalibLoop: public CP::TEventLoopFunction {
 public:
     TClusterCalibLoop() {
         fClusterCalib = NULL;
+        fActivityFilter = NULL;
         fSavePulses = false;
         fApplyDriftCalibration = true;
         fApplyEfficiencyCalibration = true;
@@ -15,6 +17,8 @@ public:
     virtual ~TClusterCalibLoop() {};
 
     void Usage(void) {
+        std::cout << "    -O filter     Apply a simple event activity filter"
+                  << std::endl;
         std::cout << "    -O pulse      "
                   << "Save the calibrated (after deconvolution) pulses"
                   << std::endl;
@@ -45,6 +49,9 @@ public:
             fApplyEfficiencyCalibration = false;
         }
         else if (option == "efficiency") fApplyEfficiencyCalibration = true;
+        else if (option == "filter") {
+            fActivityFilter = new CP::TActivityFilter();
+        }
         else return false;
         return true;
     }
@@ -57,19 +64,30 @@ public:
         fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
         fClusterCalib->ApplyEfficiencyCalibration(fApplyEfficiencyCalibration);
 
-        // Run the simulation on the event.
+        // Run the calibration on the event.
         (*fClusterCalib)(event);
 
-        // Save everything.
+        // Possibly run a filter to reject noise events.
+        if (fActivityFilter) {
+            bool result = (*fActivityFilter)(event);
+            if (!result) {
+                CaptLog("Reject event");
+                return false;
+            }
+        }
+        
+        // Save everything that gets to here.
         return true;
     }
 
 private:
     CP::TClusterCalib* fClusterCalib;
-
+    CP::TActivityFilter* fActivityFilter;
+    
     bool fSavePulses;
     bool fApplyDriftCalibration;
     bool fApplyEfficiencyCalibration;
+
 };
 
 int main(int argc, char **argv) {
