@@ -2,7 +2,7 @@
 #define TClusterCalib_hxx_seen
 
 #include <TEvent.hxx>
-#include <TMCChannelId.hxx>
+#include <TChannelId.hxx>
 
 #include <memory>
 
@@ -12,13 +12,7 @@ namespace CP {
     class TPulseDeconvolution;
 };
 
-/// This is a very simplistic electronics simulation.  It is not intended for
-/// doing physic, but does capture enough of the behavior to develop software.
-/// On output, the hits for the PMT are saved in the "pmt" hit selection, and
-/// the wire hits are contained in "drift".  This has flags to control the
-/// behavior.  The most important is the ApplyDriftCalibration flag which is
-/// true for normal data, but can be set to false when calculating the
-/// electron lifetime. 
+/// Apply the calibration to an event and find pulse to make hits.
 class CP::TClusterCalib {
 public:
     typedef std::vector<double> DoubleVector;

@@ -43,6 +43,10 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.rmsLimit");
 
+    fDigitEndSkip 
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.peakSearch.endSkip");
+    
 }
 CP::TWireMakeHits::~TWireMakeHits() {
     if (fSource) delete[] fSource;
@@ -282,11 +286,10 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     float* xx = spectrum->GetPositionX();
     std::vector<float> peaks;
 
-    int digitEndSkip = 500;
     for (int i=0; i<found; ++i)  {
         // No peaks at the ends of the digit.
-        if (xx[i] < digitEndSkip) continue;
-        if (xx[i] > digit.GetSampleCount()-digitEndSkip - 1) continue;
+        if (xx[i] < fDigitEndSkip) continue;
+        if (xx[i] > digit.GetSampleCount()-fDigitEndSkip - 1) continue;
         // Check the peak size and deconvolution power.
         int index = (int) (xx[i] + 0.5);
         // Apply a cut to the overall peak size. (The digit has had the

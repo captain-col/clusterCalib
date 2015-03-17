@@ -87,6 +87,13 @@ private:
     /// split into multiple hits.  Peaks wider than this are split up into
     /// multiple hits by drift time.
     double fPeakRMSLimit;
+
+    /// The number of samples to skip at the beginning and ending of the
+    /// digit.  This is needed since the first and last run of samples are
+    /// contaminated by FFT "wrap around".  There should not be any signal in
+    /// that part of the event anyway.
+    int fDigitEndSkip;
+    
 };
 
 #endif

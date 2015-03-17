@@ -29,11 +29,17 @@ acceptance criteria.  Peaks found by the search are then examined to see if
 they are consistent with a real peak.  These parameters control the peak
 acceptance.  The charge is the charge value at the peak.  The deconvolution
 is the estimated power from the SearchHighRes() output.  The noise is the
-number of RMS sigma above the random noise the signal needs to be.
+number of RMS sigma above the random noise before peak is taken as signal.
 
 < clusterCalib.peakSearch.charge = 2000 >
 < clusterCalib.peakSearch.deconvolution = 3000 >
 < clusterCalib.peakSearch.noise = 4.0 >
+
+The number of samples to skip when searching for wire hits.  This avoids a
+problem with "FFT wrap around", and because of the trigger, there shouldn't
+be hits there anyway.
+
+< clusterCalib.peakSearch.endSkip = 500 >
 
 Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
