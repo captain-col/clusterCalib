@@ -116,12 +116,12 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
     if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
         CaptError("Time uncertainty for " << digit.GetChannelId() 
-                  << " is not positive and finite ");
+                  << " is not positive or and finite ");
         timeUnc = 1*unit::second;
     }
     if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
         CaptError("Charge uncertainty for " << digit.GetChannelId() 
-                  << " is not positive and finite" << samples);
+                  << " is not positive and finite " << samples);
         chargeUnc = 1*unit::coulomb;
     }
 
@@ -179,7 +179,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         double p = digit.GetSample(i);
         if (!std::isfinite(p)) {
             CaptError("Channel " << digit.GetChannelId() 
-                      << " w/ invalid sample " << i);
+                      << " w/ invalid sample " << i << " " << p);
         }
         fSource[i] = digit.GetSample(i);
         fDest[i] = 0.0;
@@ -228,6 +228,7 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         fDest[i] -= signalOffset;
     }
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist 
@@ -257,34 +258,51 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // A threshold will be set in terms of standard deviations of the noise.
     // Peaks less than this are rejected as noise.
     double noise = fWork[inoise];
-
+    
     // Protect against a "zero" channel.
-    if (noise < 1) {
-        CaptLog("Wire with no signal: " << digit.GetChannelId());
+    if (fWork[digit.GetSampleCount()-1] < 100) {
+        CaptLog("Wire with no signal: " << digit.GetChannelId()
+                << " noise: " << noise
+                << " max: " << fWork[digit.GetSampleCount()-1]);
         return;
     }
     // Don't bother with channels that have crazy big noise.
     if (noise > fPeakDeconvolutionCut) {
         CaptLog("Wire with large peak noise: " << digit.GetChannelId()
-                << "  noise: " << noise);
+                << "  noise: " << noise
+                << "  base: " << baseline );
         return;
     }
-    
+
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        static TH1F* gNoiseHistogram = NULL;
-        if (!gNoiseHistogram) {
-            gNoiseHistogram
-                = new TH1F("peakSearchNoise",
-                           "Peak height sigma for all wires",
-                           100, 0.0, 5000);
-        }
-        gNoiseHistogram->Fill(noise);
+    static TH1F* gNoiseHistogram = NULL;
+    if (!gNoiseHistogram) {
+        gNoiseHistogram
+            = new TH1F("peakSearchNoise",
+                       "Peak height sigma for all wires",
+                       100, 0.0, 5000);
+    }
+    gNoiseHistogram->Fill(noise);
 #endif
 
-        // Get the peak positions, and determine which ones are above threshold.
+    // Get the peak positions, and determine which ones are above threshold.
     float* xx = spectrum->GetPositionX();
     std::vector<float> peaks;
+
+#define FILL_HISTOGRAM
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    static TH1F* gPeakHistogram = NULL;
+    if (!gPeakHistogram) {
+        gPeakHistogram
+            = new TH1F("peakSearch",
+                       "Maximum peak height for each wires",
+                       100, 0.0, 15000);
+    }
+    gPeakHistogram->Fill(xx[0]);
+#endif
 
     for (int i=0; i<found; ++i)  {
         // No peaks at the ends of the digit.

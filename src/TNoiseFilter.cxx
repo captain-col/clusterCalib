@@ -81,12 +81,18 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
             truncSigma += fWork[index]*fWork[index];
             truncWeight += 1.0;
         }
-        truncAverage /= truncWeight;
-        truncSigma /= truncWeight;
-        fAverage[i] = truncAverage;
-        fSigma[i] = 1.0;
-        if (truncSigma> truncAverage*truncAverage) {
-            fSigma[i] = std::sqrt(truncSigma - truncAverage*truncAverage);
+        if (truncWeight > 0.0) {
+            truncAverage /= truncWeight;
+            truncSigma /= truncWeight;
+            fAverage[i] = truncAverage;
+            fSigma[i] = 1.0;
+            if (truncSigma > truncAverage*truncAverage) {
+                fSigma[i] = std::sqrt(truncSigma - truncAverage*truncAverage);
+            }
+        }
+        else {
+            fAverage[i] = 0.0;
+            fSigma[i] = 1.0;
         }
         minPower = std::min(minPower, fAverage[i]);
         maxPower = std::max(maxPower, fAverage[i]);
@@ -105,9 +111,17 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
 #endif
     
     // Find the Gaussian noise estimate.
-    double noise = fNoisePower;
-    noise *= (maxPower*minResponse-minPower*maxResponse)/(minPower-maxPower);
-
+    double noise = 0.0;
+    if (minPower < maxPower) {
+        noise = fNoisePower;
+        noise *= (minPower*maxResponse-maxPower*minResponse);
+        noise /= (maxPower-minPower);
+    }
+    // Protect against numeric problems.
+    if (noise < 0.0) {
+        noise = 0.0;
+    }
+    
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* sigHist 
@@ -135,6 +149,7 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
         }
         // Apply filter for Gaussian Noise.
         fFilter[i] *= respPower*respPower/(respPower*respPower + noise*noise);
+        if (!std::isfinite(fFilter[i])) fFilter[i] = 1.0;
     }
 
 }

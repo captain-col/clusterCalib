@@ -14,6 +14,7 @@
 #include <TH1F.h>
 
 #include <memory>
+#include <numeric>
 #include <cmath>
 
 CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
@@ -260,6 +261,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     double baselineMedian = diff[0.5*digit.GetSampleCount()];
     double baselineSigma = diff[0.16*digit.GetSampleCount()];
     baselineSigma = std::abs(baselineSigma-baselineMedian);
+
+    // The minimum baseline fluctuation is 1 electron charge.
+    if (baselineSigma < 1) baselineSigma = 1.0;
     
     // Define a maximum separation between the sample and the median sample.
     // If it's more than this, then the sample is not baseline.  This is one
@@ -280,9 +284,11 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // looking at the differences of two samples (that gives a sqrt(2)) and
     // wanting the RMS (which is the 68%).  This gives 48% (which is
     // 68%/sqrt(2)).  Then because of the ordering after the sort, the bin we
-    // look at is 1.0-52%.
+    // look at is 1.0-52%.  The minimum allowable fluctuation is 1 electron
+    // charge.
     fSampleSigma = diff[0.52*digit.GetSampleCount()];
-
+    if (fSampleSigma < 1.0) fSampleSigma = 1.0;
+    
     // Define a cut for the maximum change between two samples.  If the
     // difference is greater than this, then the samples are not "coherent".
     // If too many samples in a "coherence zone" are not considered coherent,
@@ -322,7 +328,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // Estimate the baseline for regions where there isn't much change.
     std::vector<double> baseline;
     baseline.resize(digit.GetSampleCount());
-
+    const double unfilledBaseline = std::numeric_limits<double>::quiet_NaN();
+    std::fill(baseline.begin(), baseline.end(), unfilledBaseline);
+    
     std::vector<double> drift;
     drift.resize(digit.GetSampleCount());
 
@@ -390,7 +398,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         }
 
         // Don't consider very high signals to be baseline
-        if (digit.GetSample(i)> baselineCut) {
+        if (digit.GetSample(i) > baselineCut) {
             continue;
         }
 
@@ -463,62 +471,64 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
 
     }
 
-    // The baseline will be non-zero for any point that is baseline like, but
-    // there will be gaps of zeros that correspond to where the sample is
-    // changing more rapidly that would be expected from pure statistics.  The
-    // next step is to tentatively interpolate into those zones and check if
-    // the interpolated baseline is bigger than the sample.  If the
-    // interpolated baseline is bigger, then the sample becomes the new
-    // baseline for that point.  The drift variable will take the new
-    // candidate baseline values.
+    // The baseline will equal to unfilledBaseline for any point that is not
+    // baseline like with gaps that correspond to where the sample is changing
+    // more rapidly that would be expected from pure statistics.  The next
+    // step is to tentatively interpolate into those zones and check if the
+    // interpolated baseline is bigger than the sample.  If the interpolated
+    // baseline is bigger, then the sample becomes the new baseline for that
+    // point.  The drift variable will take the new candidate baseline values.
+    // This overwrites the drift vector to save an allocation (i.e. false
+    // optimization!).  After the end of this section, drift will have a value
+    // for anyplace where the signal is not baseline like.
     for (std::size_t i = 0; i<baseline.size(); ++i) {
-        drift[i] = 0.0;
-        if (std::abs(baseline[i]) > 1E-6) continue;
+        drift[i] = unfilledBaseline;
+        if (std::isfinite(baseline[i])) continue;
         std::size_t j = i;
-        while (0<j && std::abs(baseline[j]) < 1E-6) --j;
+        while (0<j && !std::isfinite(baseline[j])) --j;
         std::size_t k = i;
-        while (k<baseline.size() && std::abs(baseline[k]) < 1E-6) ++k;
+        while (k<baseline.size() && !std::isfinite(baseline[k])) ++k;
         double interp = (k-i)*baseline[j] + (i-j)*baseline[k];
         interp /= 1.0*(k-j);
         if (digit.GetSample(i) < interp) drift[i] = digit.GetSample(i);
     }
 
     // Reject any new baseline regions where its only a few bins below the
-    // interpolated baseline.
+    // interpolated baseline.  This is done by restting drift to
+    // unfilledBaseline
     for (std::size_t i = 0; i<baseline.size(); ++i) {
-        if (std::abs(drift[i]) < 1E-6) continue;
+        if (!std::isfinite(drift[i])) continue;
         std::size_t j = i;
-        while (j<drift.size() && std::abs(drift[j]) > 1E-6) ++j;
+        while (j<drift.size() && std::isfinite(drift[j])) ++j;
         if ((j-i) < 3) {
-            for (std::size_t k = i; k<j; ++k) drift[k] = 0.0;
+            for (std::size_t k = i; k<j; ++k) drift[k] = unfilledBaseline;
         }
         i = j;
     }
 
-    // Smooth the baseline to get rid of the highest frequency components.
-    // This overwrites the drift vector to save an allocation (i.e. false
-    // optimization!).
+    // Smooth the baseline to get rid of the highest frequency components, and
+    // put the smoothed components into drift.  This fills in the gaps in
+    // drift around where the baseline had already been estimated.
     int baselineWindow = 5;
     for (int i = 0; i<(int)baseline.size(); ++i) {
         // Skip non-baseline like regions.
-        drift[i] = 0.0;
-        if (std::abs(baseline[i]) < 1E-6) continue;
+        if (!std::isfinite(baseline[i])) continue;
         // Apply smoothing to the input signal.  This is controlled with
         // clusterCalib.smoothing.wire
         double val = 0.0;
         double weight = 0.0;
         for (int j=0; j<baselineWindow; ++j) {
             double w = baselineWindow - j;
-            if (j == 0 && std::abs(baseline[i])>1E-6) {
+            if (j == 0 && std::isfinite(baseline[i])) {
                 val += w * baseline[i];
                 weight += w;
                 continue;
             }
-            if (0 <= (i-j) && std::abs(baseline[i-j])>1E-6) {
+            if (0 <= (i-j) && std::isfinite(baseline[i-j])) {
                 val += w * baseline[i-j];
                 weight += w;
             }
-            if ((i+j) < (int) baseline.size() && std::abs(baseline[i+j])>1E-6) {
+            if ((i+j) < (int) baseline.size() && std::isfinite(baseline[i+j])) {
                 val += w * baseline[i+j];
                 weight += w;
             }
@@ -526,17 +536,19 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         if (weight < 0.001) continue;
         drift[i] = val/weight;
     }
+
+    // copy what we know back into baseline.
     std::copy(drift.begin(), drift.end(), baseline.begin());
 
     // Now do a final interpolation to get the baseline everywhere.
     for (std::size_t i = 0; i<baseline.size(); ++i) {
-        if (std::abs(baseline[i]) > 1E-6) continue;
+        if (std::isfinite(drift[i])) continue;
         std::size_t j = i;
-        while (0<j && std::abs(baseline[j]) < 1E-6) --j;
+        while (0<j && !std::isfinite(drift[j])) --j;
         std::size_t k = i;
-        while (k<baseline.size() && std::abs(baseline[k]) < 1E-6) ++k;
-        double interp = (k-i)*baseline[j] + (i-j)*baseline[k];
-        interp /= 1.0*k-j;
+        while (k<drift.size() && !std::isfinite(drift[k])) ++k;
+        double interp = (k-i)*drift[j] + (i-j)*drift[k];
+        interp /= 1.0*(k-j);
         baseline[i] = interp;
     }
 
@@ -549,6 +561,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
                    digit.GetSampleCount(),
                    digit.GetFirstSample(), digit.GetLastSample());
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        if (!std::isfinite(baseline[i])) {
+            CaptError("Baseline not filled at " << i);
+        }
         bkgHist->SetBinContent(i+1,baseline[i]);
     }
 #endif
@@ -558,6 +573,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     fBaselineSigma = 0.0;
     double aveBaseline = 0.0;
     for (std::size_t i=0; i<digit.GetSampleCount(); ++i) {
+        if (!std::isfinite(baseline[i])) {
+            CaptError("Baseline not filled at " << i);
+        }
         fBaselineSigma += baseline[i]*baseline[i];
         aveBaseline += baseline[i];
         double d = digit.GetSample(i) - baseline[i];
