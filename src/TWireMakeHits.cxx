@@ -46,6 +46,10 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
     fDigitEndSkip 
         = CP::TRuntimeParameters::Get().GetParameterI(
             "clusterCalib.peakSearch.endSkip");
+
+    fIntegrationChargeThreshold = 0.1;
+
+    fIntegrationNoiseThreshold = 1.0;
     
 }
 CP::TWireMakeHits::~TWireMakeHits() {
@@ -66,7 +70,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     
     // Find the peak charge, average sample index and sample index squared for
     // the peak.  The average is charge weighted.
-    for (int j=beginIndex; j<endIndex; ++j) {
+    for (int j=beginIndex+1; j<endIndex; ++j) {
         double v = digit.GetSample(j);
         if (v <= 0) continue;
         charge += v;
@@ -135,12 +139,14 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     // and sensed electrons are the same thing.
     if (fCorrectCollectionEfficiency) {
         charge /= calib.GetCollectionEfficiency(digit.GetChannelId());
+        chargeUnc /= calib.GetCollectionEfficiency(digit.GetChannelId());
     }
 
     // Correct for the electron drift lifetime.  
     double deltaT = time - t0;
     if (fCorrectElectronLifetime && deltaT > 0.0) {
         charge *= std::exp(deltaT/calib.GetElectronLifetime());
+        chargeUnc *= std::exp(deltaT/calib.GetElectronLifetime());
     }
 
     // Build the hit.
@@ -156,11 +162,12 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     return CP::THandle<CP::TDataHit>(new CP::TDataHit(hit));
 }
 
-void CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
-                                    const CP::TCalibPulseDigit& digit,
-                                    double t0,
-                                    double baselineSigma,
-                                    double sampleSigma) {
+double CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
+                                      const CP::TCalibPulseDigit& digit,
+                                      double t0,
+                                      double baselineSigma,
+                                      double sampleSigma) {
+    double wireCharge = 0.0;
 
     // Make sure we have enough memory allocated for the spectrum.
     if (fNSource < (int) digit.GetSampleCount()) {
@@ -212,12 +219,12 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // most sensitive parameter is the expected peak width.  The width only
     // affects the search since the actual peak width is calculated after the
     // peaks are found.
-    double sigma = 2.0;
+    double sigma = 1.0;
     double threshold = 1;
     bool removeBkg = false;
     int iterations = 15;
     bool useMarkov = true;
-    int window = 2;
+    int window = 1;
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
                                         sigma, threshold,
                                         removeBkg, iterations, 
@@ -228,7 +235,6 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         fDest[i] -= signalOffset;
     }
 
-#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist 
@@ -264,19 +270,19 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         CaptLog("Wire with no signal: " << digit.GetChannelId()
                 << " noise: " << noise
                 << " max: " << fWork[digit.GetSampleCount()-1]);
-        return;
+        return wireCharge;
     }
     // Don't bother with channels that have crazy big noise.
     if (noise > fPeakDeconvolutionCut) {
         CaptLog("Wire with large peak noise: " << digit.GetChannelId()
                 << "  noise: " << noise
                 << "  base: " << baseline );
-        return;
+        return wireCharge;
     }
 
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
     static TH1F* gNoiseHistogram = NULL;
     if (!gNoiseHistogram) {
         gNoiseHistogram
@@ -291,17 +297,38 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     float* xx = spectrum->GetPositionX();
     std::vector<float> peaks;
 
-#define FILL_HISTOGRAM
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
     static TH1F* gPeakHistogram = NULL;
     if (!gPeakHistogram) {
         gPeakHistogram
-            = new TH1F("peakSearch",
-                       "Maximum peak height for each wires",
-                       100, 0.0, 15000);
+            = new TH1F("peakArea",
+                       "Estimated area of found peaks on each wires",
+                       100, 0.0, 50000);
     }
-    gPeakHistogram->Fill(xx[0]);
+    for (int i=0; i<std::min(10,found); ++i) {
+        int index = (int) (xx[i] + 0.5);
+        double peak = fDest[index];
+        gPeakHistogram->Fill(std::min(peak,49000.0));
+    }
+#endif
+
+#define STANDARD_HISTOGRAM
+#ifdef STANDARD_HISTOGRAM
+#undef STANDARD_HISTOGRAM
+    static TH1F* gHeightHistogram = NULL;
+    if (!gHeightHistogram) {
+        gHeightHistogram
+            = new TH1F("peakHeight",
+                       "Height of found peaks on each wires",
+                       100, 0.0, 50000);
+    }
+    for (int i=0; i<std::min(10,found); ++i) {
+        int index = (int) (xx[i] + 0.5);
+        double peak = digit.GetSample(index);
+        gHeightHistogram->Fill(std::min(peak,49000.0));
+    }
 #endif
 
     for (int i=0; i<found; ++i)  {
@@ -326,17 +353,20 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // This ugly bit of code is taking a found peak and making sure that if
     // it's too wide (i.e. the RMS is too big), it's split into smaller hits.
     // The heuristic is that a peak contains all charge for bins that are more
-    // than "chargeThresh" times the peak value.  If more than one peak is
+    // than a charge and noise threshold.  If more than one peak is
     // found, then the digit is split at the halfway point between the peaks.
     // If the peak is too wide, then the peak is split.
-    double chargeThresh = 0.1;
+    double noiseThreshold
+        = std::sqrt(baselineSigma*baselineSigma + sampleSigma*sampleSigma);
+    noiseThreshold *= fIntegrationNoiseThreshold;
+    
     int hitCount = 0;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
-        int i = (int) (*p + 0.5);
+        int iPeak = (int) (*p + 0.5);
         int beginIndex = 0;
         int endIndex = digit.GetSampleCount();
-        double peak = digit.GetSample(i);
+        double peak = digit.GetSample(iPeak);
 
         // For the current peak, find the upper and lower bounds of the
         // integration region.  If the peak is close to another, the bound is
@@ -357,26 +387,36 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
             }
         }
 
-        // Search down from the peak center to find the actual integration
-        // bounds based on the actual extent of the peak.  This extends beyond
-        // the edge of the peak to pick up some of the background.
+        // Decrement beginIndex down from the peak center to find the actual
+        // integration bounds based on the actual extent of the peak.  This
+        // extends beyond the edge of the peak to pick up some of the
+        // background.
         int j = beginIndex;
         int endCount = -1;
-        for (beginIndex = i-1; j <= beginIndex; --beginIndex) {
+        for (beginIndex = iPeak-1; j <= beginIndex; --beginIndex) {
             double v = digit.GetSample(beginIndex);
+            if (v<0) break;
+            if (endCount > 0 && v > digit.GetSample(beginIndex+1)) break;
             if (endCount > 0 && --endCount == 0) break;
-            if (endCount < 0 && v < chargeThresh*peak) endCount = 10;
+            if (endCount < 0 &&
+                (v < fIntegrationChargeThreshold*peak
+                 || v < noiseThreshold )) endCount = 2;
         }
 
-        // Search up from the peak center to find the actual integration
-        // bounds based on the actual extent of the peak.  This extends beyond
-        // the edge of the peak to pick up some of the background.
+        // Increment endIndex up from the peak center to find the actual
+        // integration bounds based on the actual extent of the peak.  This
+        // extends beyond the edge of the peak to pick up some of the
+        // background.
         j = endIndex;
         endCount = -1;
-        for (endIndex = i+1; endIndex < j; ++endIndex) {
+        for (endIndex = iPeak+1; endIndex < j; ++endIndex) {
             double v = digit.GetSample(endIndex);
+            if (v<0) break;
+            if (endCount > 0 && v > digit.GetSample(endIndex-1)) break;
             if (endCount > 0 && --endCount == 0) break;
-            if (endCount < 0 && v < chargeThresh*peak) endCount = 10;
+            if (endCount < 0 &&
+                (v < fIntegrationChargeThreshold*peak
+                 || v < noiseThreshold )) endCount = 2;
         }
 
         double charge = 0.0;
@@ -420,8 +460,11 @@ void CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                                                    i, j,
                                                    (split > 1));
             if (!newHit) continue;
+            wireCharge += newHit->GetCharge();
             hits.push_back(newHit);
-            if (++hitCount > 50) return;
+            if (++hitCount > 50) return wireCharge;
         }            
     }
+
+    return wireCharge;
 }

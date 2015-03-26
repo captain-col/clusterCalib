@@ -30,8 +30,8 @@ public:
     /// a hit selection of PMT hits that will be used as a hint for the
     /// expected dispersion of the wire signals.  If the sample uncertainty is
     /// provided, this is the uncertainty of each measurement in the
-    /// TCalibPulseDigit.
-    void operator () (CP::THitSelection& hits, 
+    /// TCalibPulseDigit.  This returns the total charge on the wire.
+    double operator () (CP::THitSelection& hits, 
                       const CP::TCalibPulseDigit& digits,
                       double t0,
                       double baseSigma = 0.0,
@@ -94,6 +94,17 @@ private:
     /// that part of the event anyway.
     int fDigitEndSkip;
     
+    /// Once a peak has been found, the charge is calculated by summing "out
+    /// from the peak" until the sample charges are below the charge
+    /// threshold.  This sets a threshold as a fraction of the peak height.
+    double fIntegrationChargeThreshold;
+
+    /// Once a peak has been found, the charge is calculated by summing "out
+    /// from the peak" until the sample charges are below the charge
+    /// threshold.  This sets a threshold as a sigma  of the baseline and
+    /// sample noise (calculated in PulseDeconvolution).
+    double fIntegrationNoiseThreshold;
+
 };
 
 #endif
