@@ -64,7 +64,7 @@ bool CP::TWireResponse::Calculate() {
             fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
         }
         fResponse[0] = 1;
-        return true;
+        break;
     case kTimeDerivative:
         CaptLog("Calculate differential function wire response");
         // Use the derivative of the charge w.r.t. time for the wire response.
@@ -74,8 +74,13 @@ bool CP::TWireResponse::Calculate() {
             fResponse[i] = 0;
             fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
         }
-        fResponse[0] = -1;
-        fResponse[fResponse.size()-1] = 1;
+        {
+            // Eat up several factors of two from the response normalization
+            // that appear for the "derivative".
+            const double norm =1.0/sqrt(8.0);
+            fResponse[0] = -1/norm;
+            fResponse[fResponse.size()-1] = 1/norm;
+        }
         break;
     default:
         CaptError("Unknown wire class");
