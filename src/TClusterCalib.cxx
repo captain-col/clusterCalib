@@ -19,20 +19,25 @@
 
 #include <memory>
 
-CP::TClusterCalib::TClusterCalib() {
-    fDigitStep 
-        = CP::TRuntimeParameters::Get().GetParameterD(
-            "clusterCalib.digitization.step");
+// The next two includes are for debugging against MC input.  The are needed
+// to fill some diagnostic histograms.
+#include <TPulseMCDigit.hxx>
+#include <TMCChannelId.hxx>
 
-    fPulseLength
+CP::TClusterCalib::TClusterCalib() {
+
+    double pulseLength
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.digitization.pulse");
 
-    fResponseLength
+    double responseLength
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.digitization.response");
 
-    fSampleCount = (fPulseLength+fResponseLength)/fDigitStep;
+    // Estimate the minimum number of samples that will be used.  This is only
+    // needed for initialization and will be overridden by the real value
+    // later.
+    fSampleCount = (pulseLength+responseLength)/(500*unit::ns);
     fSampleCount = 2*(1+fSampleCount/2);
 
     fCalibrate = new TPulseCalib();
@@ -40,7 +45,7 @@ CP::TClusterCalib::TClusterCalib() {
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
     fSaveCalibratedPulses = false;
-    fApplyDriftCalibration = true;
+    fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
 }
 
@@ -331,9 +336,45 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
 
-        makeWireHits(*driftHits,*deconv,t0,
-                     fDeconvolution->GetBaselineSigma(),
-                     fDeconvolution->GetSampleSigma());
+        double wireCharge
+            = makeWireHits(*driftHits,*deconv,t0,
+                           fDeconvolution->GetBaselineSigma(),
+                           fDeconvolution->GetSampleSigma());
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        // Check if this is an MC hit.
+        const CP::TPulseMCDigit* mcPulse 
+            = dynamic_cast<const CP::TPulseMCDigit*>((*drift)[d]);
+        if (mcPulse) {
+            static TH1F* gClusterCalibXTrueVFound = NULL;
+            static TH1F* gClusterCalibUVTrueVFound = NULL;
+            if (!gClusterCalibXTrueVFound) {
+                gClusterCalibXTrueVFound = new TH1F(
+                    "clusterCalibXTrueVFound",
+                    "True and Calibrated Charge Fraction Diff. X wires",
+                    100, -1.0, 2.0);
+            }
+
+            if (!gClusterCalibUVTrueVFound) {
+                gClusterCalibUVTrueVFound = new TH1F(
+                    "clusterCalibUVTrueVFound",
+                    "True and Calibrated Charge Fraction Diff. UV wires",
+                    100, -1.0, 2.0);
+            }
+
+            if (mcPulse->GetInformation().size()>0
+                && mcPulse->GetInformation().front() > 0) {
+                CP::TMCChannelId mcChan(mcPulse->GetChannelId());
+                double trueCharge = mcPulse->GetInformation().front();
+                double delta = (wireCharge - trueCharge)/trueCharge;
+                TH1F* hist = NULL;
+                if (mcChan.GetSequence() == 0) hist = gClusterCalibXTrueVFound;
+                if (mcChan.GetSequence() != 0) hist = gClusterCalibUVTrueVFound;
+                if (hist) hist->Fill(delta);
+            }
+        }
+#endif  
 
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }

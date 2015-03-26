@@ -57,12 +57,6 @@ private:
     /// function length.  See fPulseLength for more documentation.
     double fResponseLength;
 
-    /// The minimum time per sample in the ellectronics.  This is used to
-    /// calculate the length of the FFT, and the exact value isn't important
-    /// (as long as it is equal to, or shorter, than the actual time per
-    /// sample
-    double fDigitStep;
-
     /// A convenient holder for the number of samples used in the FFT.  This
     /// must equivalent to fFFT->GetN()[0], or there is a bug.  The
     /// equivalence is guarranteed in the constructor.
