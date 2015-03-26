@@ -312,6 +312,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         diff[i] = delta;
     }
 
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* diffHist 
@@ -477,11 +478,12 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // step is to tentatively interpolate into those zones and check if the
     // interpolated baseline is bigger than the sample.  If the interpolated
     // baseline is bigger, then the sample becomes the new baseline for that
-    // point.  The drift variable will take the new candidate baseline values.
-    // This overwrites the drift vector to save an allocation (i.e. false
+    // point (but not if it's a big fluctuation from it's neighbors).  The
+    // drift variable will take the new candidate baseline values.  This
+    // overwrites the drift vector to save an allocation (i.e. false
     // optimization!).  After the end of this section, drift will have a value
     // for anyplace where the signal is not baseline like.
-    for (std::size_t i = 0; i<baseline.size(); ++i) {
+    for (std::size_t i = 1; i<baseline.size()-1; ++i) {
         drift[i] = unfilledBaseline;
         if (std::isfinite(baseline[i])) continue;
         std::size_t j = i;
@@ -490,11 +492,15 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         while (k<baseline.size() && !std::isfinite(baseline[k])) ++k;
         double interp = (k-i)*baseline[j] + (i-j)*baseline[k];
         interp /= 1.0*(k-j);
-        if (digit.GetSample(i) < interp) drift[i] = digit.GetSample(i);
+        if (digit.GetSample(i) < interp
+            && diff[i]/fSampleSigma < 3.0
+            && diff[i+1]/fSampleSigma < 3.0) {
+            drift[i] = digit.GetSample(i);
+        }
     }
 
     // Reject any new baseline regions where its only a few bins below the
-    // interpolated baseline.  This is done by restting drift to
+    // interpolated baseline.  This is done by resetting drift to
     // unfilledBaseline
     for (std::size_t i = 0; i<baseline.size(); ++i) {
         if (!std::isfinite(drift[i])) continue;
@@ -506,6 +512,20 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         i = j;
     }
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* interpHist 
+        = new TH1F((digit.GetChannelId().AsString()+"-interp").c_str(),
+                   ("Interp for " 
+                    + digit.GetChannelId().AsString()).c_str(),
+                   digit.GetSampleCount(),
+                   digit.GetFirstSample(), digit.GetLastSample());
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        if (!std::isfinite(drift[i])) continue;
+        interpHist->SetBinContent(i+1, drift[i]);
+    }
+#endif
+        
     // Smooth the baseline to get rid of the highest frequency components, and
     // put the smoothed components into drift.  This fills in the gaps in
     // drift around where the baseline had already been estimated.
