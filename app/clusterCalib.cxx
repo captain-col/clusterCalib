@@ -10,7 +10,7 @@ public:
         fClusterCalib = NULL;
         fActivityFilter = NULL;
         fSavePulses = false;
-        fApplyDriftCalibration = true;
+        fApplyDriftCalibration = false;
         fApplyEfficiencyCalibration = true;
     }
 
