@@ -55,17 +55,15 @@ bool CP::TElectronicsResponse::Calculate() {
 
     TChannelCalib calib;
     
-    // Fill the response function.  This explicitly normalizes.
+    // Fill the response function.  This explicitly normalizes so that the
+    // pulse shaping is amplitude conserving (the pulse shaping for a
+    // "delta-function" sample doesn't change the pulse height).
     double normalization = 0.0;
     for (std::size_t i=0; i<fResponse.size(); ++i) {
         double arg = calib.GetTimeConstant(fChannelId)*(1.0*i+0.5);
         double v = calib.GetPulseShape(fChannelId,arg);
         fResponse[i] = v;
-#ifdef UNIT_NORMALIZATION
-        normalization += v;
-#else
         normalization = std::max(normalization,v);
-#endif
     }
     if (normalization < 1E-20) return false;
     for (std::vector<Response>::iterator r = fResponse.begin();
