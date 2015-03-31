@@ -84,6 +84,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     (const CP::TCalibPulseDigit& calib) {
 
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
+    TChannelCalib channelCalib;
 
     if (fSampleCount < (int) calib.GetSampleCount()) {
         CaptLog("Deconvolution size needs to be increased from "
@@ -166,46 +167,59 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* fftHist 
-        = new TH1F((calib.GetChannelId().AsString()+"-fft").c_str(),
-                   ("FFT for " 
-                    + calib.GetChannelId().AsString()).c_str(),
-                   fSampleCount,
-                   0,fSampleCount);
-    for (std::size_t i = 0; i<fSampleCount; ++i) {
-        double rl, im;
-        fFFT->GetPointComplex(i,rl,im);
-        std::complex<double> c(rl,im);
+    {
+        double timeStep = channelCalib.GetTimeConstant(calib.GetChannelId());
+    
+        TH1F* fftHist 
+            = new TH1F((calib.GetChannelId().AsString()+"-fft").c_str(),
+                       ("FFT for " 
+                        + calib.GetChannelId().AsString()).c_str(),
+                       fSampleCount/2,
+                       0,
+                       (0.5/timeStep)/unit::hertz);
+        for (std::size_t i = 0; i<fSampleCount/2; ++i) {
+            double rl, im;
+            fFFT->GetPointComplex(i,rl,im);
+            std::complex<double> c(rl,im);
         fftHist->SetBinContent(i+1, std::abs(c));
+        }
     }
 #endif
         
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* respHist 
-        = new TH1F((calib.GetChannelId().AsString()+"-respFFT").c_str(),
-                   ("FFT of Response for " 
-                    + calib.GetChannelId().AsString()).c_str(),
-                   fSampleCount,
-                   0,fSampleCount);
-    for (std::size_t i = 0; i<fSampleCount; ++i) {
-        std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
-        std::complex<double> wire = fWireResponse->GetFrequency(i);
-        std::complex<double> c = freq*wire;
-        respHist->SetBinContent(i+1, std::abs(c));
+    {
+        double timeStep = channelCalib.GetTimeConstant(calib.GetChannelId());
+        TH1F* respHist 
+            = new TH1F((calib.GetChannelId().AsString()+"-respFFT").c_str(),
+                       ("FFT of Response for " 
+                        + calib.GetChannelId().AsString()).c_str(),
+                       fSampleCount/2,
+                       0,
+                       (0.5/timeStep)/unit::hertz);
+        for (std::size_t i = 0; i<fSampleCount/2; ++i) {
+            std::complex<double> freq = fElectronicsResponse->GetFrequency(i);
+            std::complex<double> wire = fWireResponse->GetFrequency(i);
+            std::complex<double> c = freq*wire;
+            respHist->SetBinContent(i+1, std::abs(c));
+        }
     }
 #endif
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* filterHist 
-        = new TH1F((calib.GetChannelId().AsString()+"-filter").c_str(),
-                   ("Filter for " 
-                    + calib.GetChannelId().AsString()).c_str(),
-                   fSampleCount,
-                   0,fSampleCount);
-    for (std::size_t i = 0; i<fSampleCount; ++i) {
-        filterHist->SetBinContent(i+1, fNoiseFilter->GetFilter(i));
+    {
+        double timeStep = channelCalib.GetTimeConstant(calib.GetChannelId());
+        TH1F* filterHist 
+            = new TH1F((calib.GetChannelId().AsString()+"-filter").c_str(),
+                       ("FFT Filter for " 
+                        + calib.GetChannelId().AsString()).c_str(),
+                       fSampleCount/2,
+                       0,
+                       (0.5/timeStep)/unit::hertz);
+        for (std::size_t i = 0; i<fSampleCount/2; ++i) {
+            filterHist->SetBinContent(i+1, fNoiseFilter->GetFilter(i));
+        }
     }
 #endif
 
@@ -598,8 +612,11 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         }
         fBaselineSigma += baseline[i]*baseline[i];
         aveBaseline += baseline[i];
-        double d = digit.GetSample(i) - baseline[i];
-        digit.SetSample(i,d);
+        if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
+            // Only remove the baseline if it's a bipolar channel.
+            double d = digit.GetSample(i) - baseline[i];
+            digit.SetSample(i,d);
+        }
     }
     fBaselineSigma /= digit.GetSampleCount();
     aveBaseline /= digit.GetSampleCount();
