@@ -2,6 +2,7 @@
 
 #include "TElectronicsResponse.hxx"
 #include "TWireResponse.hxx"
+#include "TChannelCalib.hxx"
 
 #include <TChannelId.hxx>
 #include <TCaptLog.hxx>
@@ -22,6 +23,8 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
                                  CP::TWireResponse& wireFreq,
                                  TVirtualFFT& measFreq) {
 
+    TChannelCalib channelCalib;
+    
     fIsNoisy = false;
 
     if (fFilter.size() != elecFreq.GetSize()) {
@@ -33,8 +36,7 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
 
     // Copy the power at every frequency in to a work area.
     double maxResponse = 0.0;
-    double minResponse = std::abs(elecFreq.GetFrequency(fFilter.size()/2)
-                                  *wireFreq.GetFrequency(fFilter.size()/2));
+    double minResponse = 1E+6;
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
         double rl, im;
         measFreq.GetPointComplex(i,rl,im);
@@ -44,6 +46,7 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
         double res = std::abs(elecFreq.GetFrequency(i)
                               *wireFreq.GetFrequency(i));
         maxResponse = std::max(maxResponse,res);
+        minResponse = std::min(minResponse,res);
     }
 
     // Make a "smoothed" estimate of the power at every bin and the sigma.
@@ -106,21 +109,56 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
     double c = b*fFilter.size();
     double d = sqrt(c);
     if (d > 400.0) {
+        CaptError("Channel " << id << " rejected as too noisy");
         fIsNoisy = true;
     }
 #endif
     
     // Find the Gaussian noise estimate.
+    double maxSignal = 0.0;
+    double maxSignalWeight = 0.0;
+    double minSignal = 0.0;
+    double minSignalWeight = 0.0;
+    for (int i=0; i<fWork.size(); ++i) {
+        double res = std::abs(elecFreq.GetFrequency(i)
+                              *wireFreq.GetFrequency(i));
+        double w = res/maxResponse;
+        w = w*w;
+        double p = fWork[i]*fWork[i]/fWork.size()/fWork.size();
+        maxSignalWeight += w;
+        maxSignal += w*p;
+        w = 1.0-res/maxResponse;
+        w *= w;
+        minSignalWeight += w;
+        minSignal += w*p;
+    }
+    maxSignal = maxSignal/maxSignalWeight;
+    minSignal = minSignal/minSignalWeight;
+    minSignal = std::sqrt(minSignal*fWork.size()/2.0);
+    
+    // Estimate the noise power relative to the averaged signal.
     double noise = 0.0;
-    if (minPower < maxPower) {
-        noise = fNoisePower;
-        noise *= (minPower*maxResponse-maxPower*minResponse);
-        noise /= (maxPower-minPower);
+    if (minSignal < maxSignal) {
+        noise = maxSignal*minResponse-maxResponse*minSignal;
+        noise /= (minSignal-maxSignal);
     }
+        
     // Protect against numeric problems.
-    if (noise < 0.0) {
-        noise = 0.0;
-    }
+    if (noise < 0.0) noise = 0.0;
+
+    // Add in an offset to deal with the digitization.  This limits the RMS to
+    // be greater than or equal to 2 ADC counts.  It's then normalized to be a
+    // fraction of the expected MIP deposited charge.
+    double gain = channelCalib.GetGainConstant(id,1);
+    double slope = channelCalib.GetDigitizerConstant(id,1);
+    double adcNoise = 2.0/gain/slope;
+    adcNoise = adcNoise/(4.0*unit::fC);
+    double signalNoise = minSignal/(4.0*unit::fC);
+    noise = std::sqrt(noise*noise
+                      + adcNoise*adcNoise
+                      + minResponse*minResponse
+                      + signalNoise*signalNoise);
+    noise *= fNoisePower;
     
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -129,29 +167,32 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
                    ("Signal Estimate for " 
                     + id.AsString()).c_str(),
                    fFilter.size(),
-                   0,fFilter.size());
+                   0,0.5/channelCalib(id));
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
-        sigHist->SetBinContent(i+1,fAverage[i]); //  + fSpikePower*fSigma[i]);
-    }
+        sigHist->SetBinContent(i+1,fAverage[i]);
+   }
 #endif
 
     int spikeCount = 0;
-    for (std::size_t i = 1; i<fFilter.size(); ++i) {
+    for (std::size_t i = 0; i<fFilter.size(); ++i) {
         double measPower = fWork[i];
         double respPower = std::abs(elecFreq.GetFrequency(i)
                                     *wireFreq.GetFrequency(i));
         double sigPower = fAverage[i];
+#ifdef SPIKE_FILTER
         // Apply filter for any spikes in the FFT.
         if (fWork[i] > fAverage[i]+fSpikePower*fSigma[i]) {
             ++spikeCount;
             fFilter[i] *= sigPower*sigPower
                 /(sigPower*sigPower+measPower*measPower);
         }
+#endif
         // Apply filter for Gaussian Noise.
         fFilter[i] *= respPower*respPower/(respPower*respPower + noise*noise);
-        if (!std::isfinite(fFilter[i])) fFilter[i] = 1.0;
+        if (!std::isfinite(fFilter[i])) {
+            CaptError("Filter not finite at " << i << " " << fFilter[i]);
+            fFilter[i] = 1.0;
+        }
     }
-
 }
-
 
