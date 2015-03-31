@@ -52,6 +52,13 @@ CP::TWireResponse::GetFrequency(int i) {
 bool CP::TWireResponse::Calculate() {
     fMustRecalculate = false;
 
+    CP::TChannelCalib calib;
+
+    for (std::size_t i=0; i<fResponse.size(); ++i) {
+        fResponse[i] = 0;
+        fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
+    }
+
     // Fill the response function.  This explicitly normalizes.
     switch (fWireClass) {
     case kDeltaFunction:
@@ -59,10 +66,6 @@ bool CP::TWireResponse::Calculate() {
         // Use a delta function in time for the wire response.  This is an
         // appropriate approximation for the collection wires (i.e. the X
         // plane).
-        for (std::size_t i=0; i<fResponse.size(); ++i) {
-            fResponse[i] = 0;
-            fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
-        }
         fResponse[0] = 1;
         break;
     case kTimeDerivative:
@@ -70,16 +73,12 @@ bool CP::TWireResponse::Calculate() {
         // Use the derivative of the charge w.r.t. time for the wire response.
         // This is appropriate for the induction wires (i.e. the U and V
         // planes).
-        for (std::size_t i=0; i<fResponse.size(); ++i) {
-            fResponse[i] = 0;
-            fFrequency[i] = Frequency(1,0); // Initialize, will be overwritten.
-        }
         {
-            // Eat up several factors of two from the response normalization
-            // that appear for the "derivative".
-            const double norm =1.0/sqrt(8.0);
-            fResponse[0] = -1/norm;
-            fResponse[fResponse.size()-1] = 1/norm;
+            double norm = 1.0/std::sqrt(2.0);
+            // Correct for the bin size.
+            norm *= calib.GetTimeConstant(fChannelId)/(1*unit::microsecond);
+            fResponse[0] = -1.0/norm;
+            fResponse[fResponse.size()-1] = 1.0/norm;
         }
         break;
     default:
@@ -108,8 +107,8 @@ bool CP::TWireResponse::Calculate() {
     // The wire response is symetric around zero, so there is no offset.  That
     // means that the "zero" frequency is zero power, and the deconvolution
     // blows up with a divide by zero.  Fix that by adding an artificial
-    // offset.  It's 1.0 so it doesn't actually change the deconvolution.
-    fFrequency[0] = 1.0;
+    // offset.  The offset will be removed later.
+    fFrequency[0] = fFrequency[1];
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -119,7 +118,7 @@ bool CP::TWireResponse::Calculate() {
         fResponse.size(),
         0.0, 1.0*fResponse.size());
     for (std::size_t i=0; i<fResponse.size(); ++i) {
-        elecResp->Fill(i+0.5, std::abs(fResponse[i]));
+        elecResp->Fill(i+0.5, fResponse[i]);
     }
     TH1F* elecFreq = new TH1F(
         (fChannelId.AsString()+"-wireFFT").c_str(),
