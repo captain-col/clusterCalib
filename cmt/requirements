@@ -40,3 +40,6 @@ macro_append CLUSTERCALIB_dependencies " clusterCalib "
 
 application clusterCalib-fft ../app/clusterCalibFFT.cxx
 macro_append clusterCalib-fft_dependencies " clusterCalib " 
+
+application clusterCalib-tpcConstants ../app/makeTPCConstants.cxx
+macro_append clusterCalib-tpcConstants_dependencies " clusterCalib " 
