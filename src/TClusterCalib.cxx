@@ -58,7 +58,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         = event.Get<CP::TDigitContainer>("~/digits/drift");
 
     CaptLog("Process " << event.GetContext());
-    CP::TChannelInfo::Get().SetContext(event.GetContext());    
+    CP::TChannelInfo::Get().SetContext(event.GetContext());
 
     std::auto_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
 
@@ -76,7 +76,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     else {
         // Calibrate the PMT pulses and turn them into hits.
         for (std::size_t d = 0; d < pmt->size(); ++d) {
-            const CP::TPulseDigit* pulse 
+            const CP::TPulseDigit* pulse
                 = dynamic_cast<const CP::TPulseDigit*>((*pmt)[d]);
             if (!pulse) {
                 CaptError("Non-pulse in PMT digits");
@@ -85,20 +85,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             CP::TDigitProxy proxy(*pmt,d);
             std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
             makePMTHits(*pmtHits,*calib);
-            
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-            TH1F* calibHist 
-                = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
-                           ("Calibration for " 
-                            + calib->GetChannelId().AsString()).c_str(),
-                           calib->GetSampleCount(),
-                           calib->GetFirstSample(), calib->GetLastSample());
-            for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
-                calibHist->SetBinContent(i+1,calib->GetSample(i));
-            }
-#endif
-
         }
         if (pmtHits->size() > 0) {
             for (CP::THitSelection::iterator p = pmtHits->begin();
@@ -123,7 +109,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration, 
+    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration,
                                    fApplyEfficiencyCalibration);
 
     // Make a container to hold the deconvoluted digits.
@@ -141,14 +127,14 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
-        const CP::TPulseDigit* pulse 
+        const CP::TPulseDigit* pulse
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
         if (!pulse) {
             CaptError("Non-pulse in drift digits");
             continue;
         }
 
-        CP::TGeometryId pulseGeom 
+        CP::TGeometryId pulseGeom
             = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
 
         if (!pulseGeom.IsValid()) {
@@ -170,9 +156,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         const CP::TPulseDigit* raw = proxy.As<const CP::TPulseDigit>();
-        TH1F* rawHist 
+        TH1F* rawHist
             = new TH1F((raw->GetChannelId().AsString()+"-raw").c_str(),
-                       ("Raw ADC for " 
+                       ("Raw ADC for "
                         + raw->GetChannelId().AsString()).c_str(),
                        raw->GetSampleCount(),
                        raw->GetFirstSample(),
@@ -181,12 +167,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             rawHist->SetBinContent(i+1,raw->GetSample(i));
         }
 #endif
-        
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        TH1F* calibHist 
+        TH1F* calibHist
             = new TH1F((calib->GetChannelId().AsString()+"-calib").c_str(),
-                       ("Calibration for " 
+                       ("Calibration for "
                         + calib->GetChannelId().AsString()).c_str(),
                        calib->GetSampleCount(),
                        calib->GetFirstSample(), calib->GetLastSample());
@@ -194,20 +180,20 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             calibHist->SetBinContent(i+1,calib->GetSample(i));
         }
 #endif
-        
+
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-            TH1F* projHist 
+            TH1F* projHist
                 = new TH1F((calib->GetChannelId().AsString()+"-proj").c_str(),
-                           ("Projection for " 
+                           ("Projection for "
                             + calib->GetChannelId().AsString()).c_str(),
                            100, -50000.0, 50000.0);
             for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
                 projHist->Fill(calib->GetSample(i));
             }
 #endif
-       
+
 #define STANDARD_HISTOGRAM
 #ifdef STANDARD_HISTOGRAM
 #undef STANDARD_HISTOGRAM
@@ -227,12 +213,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                            5000, 0.0, 5000);
         }
         if (!gClusterCalibVPedestal) {
-            gClusterCalibVPedestal 
+            gClusterCalibVPedestal
                 = new TH1F("clusterCalibVPedestal",
                            "Pedestal for the V wires",
                            5000, 0.0, 5000);
         }
-        
+
         {
             TH1F* hist = NULL;
             switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
@@ -264,12 +250,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                            200, 0.0, 100);
         }
         if (!gClusterCalibVSigma) {
-            gClusterCalibVSigma 
+            gClusterCalibVSigma
                 = new TH1F("clusterCalibVSigma",
                            "Sigma for the V wires",
                            200, 0.0, 100);
         }
-        
+
         {
             TH1F* hist = NULL;
             switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
@@ -301,12 +287,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                            200, 0.0, 100);
         }
         if (!gClusterCalibVGaussian) {
-            gClusterCalibVGaussian 
+            gClusterCalibVGaussian
                 = new TH1F("clusterCalibVGaussian",
                            "Gaussian sigma for the V wires",
                            200, 0.0, 100);
         }
-        
+
         {
             TH1F* hist = NULL;
             switch (CP::GeomId::Captain::GetWirePlane(pulseGeom)) {
@@ -322,12 +308,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
 
         if (!deconv.get()) continue;
-        
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        TH1F* deconvHist 
+        TH1F* deconvHist
             = new TH1F((deconv->GetChannelId().AsString()+"-deconv").c_str(),
-                       ("Final deconvolution for " 
+                       ("Final deconvolution for "
                         + deconv->GetChannelId().AsString()).c_str(),
                        deconv->GetSampleCount(),
                        deconv->GetFirstSample(), deconv->GetLastSample());
@@ -343,8 +329,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-        // Check if this is an MC hit.
-        const CP::TPulseMCDigit* mcPulse 
+        // Check if this is an MC digit, and if it is, then check the overall
+        // charge normalization.
+        const CP::TPulseMCDigit* mcPulse
             = dynamic_cast<const CP::TPulseMCDigit*>((*drift)[d]);
         if (mcPulse) {
             static TH1F* gClusterCalibXTrueVFound = NULL;
@@ -353,14 +340,14 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                 gClusterCalibXTrueVFound = new TH1F(
                     "clusterCalibXTrueVFound",
                     "True and Calibrated Charge Fraction Diff. X wires",
-                    100, -1.0, 2.0);
+                    300, -1.0, 1.0);
             }
 
             if (!gClusterCalibUVTrueVFound) {
                 gClusterCalibUVTrueVFound = new TH1F(
                     "clusterCalibUVTrueVFound",
                     "True and Calibrated Charge Fraction Diff. UV wires",
-                    100, -1.0, 2.0);
+                    300, -1.0, 1.0);
             }
 
             if (mcPulse->GetInformation().size()>0
@@ -374,7 +361,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                 if (hist) hist->Fill(delta);
             }
         }
-#endif  
+#endif
 
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
@@ -465,19 +452,19 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         TGeometryId id = (*h)->GetGeomId();
         switch (CP::GeomId::Captain::GetWirePlane(id)) {
         case 0: {
-            xWireCharge += (*h)->GetCharge(); 
+            xWireCharge += (*h)->GetCharge();
             double u = (*h)->GetChargeUncertainty();
             xWireUnc += u*u;
             break;
         }
         case 1: {
-            vWireCharge += (*h)->GetCharge(); 
+            vWireCharge += (*h)->GetCharge();
             double u = (*h)->GetChargeUncertainty();
             vWireUnc += u*u;
             break;
         }
         case 2: {
-            uWireCharge += (*h)->GetCharge(); 
+            uWireCharge += (*h)->GetCharge();
             double u = (*h)->GetChargeUncertainty();
             uWireUnc += u*u;
             break;
@@ -501,7 +488,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                   "X-V/sigma: " << xv
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
-    
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     static TH1F* gClusterCalibVRatio = NULL;
