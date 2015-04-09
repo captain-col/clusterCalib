@@ -17,8 +17,9 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <sstream>
 
-CP::TWireMakeHits::TWireMakeHits(bool correctLifetime, 
+CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
                                  bool correctEfficiency) {
     fCorrectElectronLifetime = correctLifetime;
     fCorrectCollectionEfficiency = correctEfficiency;
@@ -27,30 +28,30 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
     fDest = NULL;
     fWork = NULL;
 
-    fPeakMaximumCut 
+    fPeakMaximumCut
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.charge");
 
-    fPeakDeconvolutionCut 
+    fPeakDeconvolutionCut
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.deconvolution");
 
-    fNoiseThresholdCut 
+    fNoiseThresholdCut
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.noise");
 
-    fPeakRMSLimit 
+    fPeakRMSLimit
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.rmsLimit");
 
-    fDigitEndSkip 
+    fDigitEndSkip
         = CP::TRuntimeParameters::Get().GetParameterI(
             "clusterCalib.peakSearch.endSkip");
 
     fIntegrationChargeThreshold = 0.1;
 
     fIntegrationNoiseThreshold = 1.0;
-    
+
 }
 CP::TWireMakeHits::~TWireMakeHits() {
     if (fSource) delete[] fSource;
@@ -58,8 +59,8 @@ CP::TWireMakeHits::~TWireMakeHits() {
     if (fWork) delete[] fWork;
 }
 
-CP::THandle<CP::THit> 
-CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit, 
+CP::THandle<CP::THit>
+CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
                            double step, double t0,
                            double baselineSigma, double sampleSigma,
                            int beginIndex, int endIndex, bool split) {
@@ -67,11 +68,17 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     double sample = 0.0;
     double sampleSquared = 0.0;
     double samples = 1.0;
-    
+
+    double b1 = digit.GetSample(beginIndex+1);
+    double b2 = digit.GetSample(endIndex-1);
+
     // Find the peak charge, average sample index and sample index squared for
     // the peak.  The average is charge weighted.
     for (int j=beginIndex+1; j<endIndex; ++j) {
         double v = digit.GetSample(j);
+        double baseline = b1*(endIndex-j-1) + b2*(j-beginIndex-1);
+        baseline /= (endIndex - beginIndex - 2);
+        if (!split) v -= baseline;
         if (v <= 0) continue;
         charge += v;
         sample += v*j;
@@ -87,7 +94,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
     // Convert the sample index into a time.
     double time = (sample + 0.5)*step + digit.GetFirstSample();
-    
+
     // Find the sample RMS, and then convert into a time RMS.
     double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
 
@@ -113,18 +120,18 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     double sig = sampleSigma*std::sqrt(samples);
     double chargeUnc = std::sqrt(charge + sig*sig) + baselineSigma*samples;
 
-    CP::TGeometryId geomId 
+    CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
 
     if (!geomId.IsValid()) return CP::THandle<CP::THit>();
 
     if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
-        CaptError("Time uncertainty for " << digit.GetChannelId() 
+        CaptError("Time uncertainty for " << digit.GetChannelId()
                   << " is not positive or and finite ");
         timeUnc = 1*unit::second;
     }
     if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
-        CaptError("Charge uncertainty for " << digit.GetChannelId() 
+        CaptError("Charge uncertainty for " << digit.GetChannelId()
                   << " is not positive and finite " << samples);
         chargeUnc = 1*unit::coulomb;
     }
@@ -142,7 +149,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
         chargeUnc /= calib.GetCollectionEfficiency(digit.GetChannelId());
     }
 
-    // Correct for the electron drift lifetime.  
+    // Correct for the electron drift lifetime.
     double deltaT = time - t0;
     if (fCorrectElectronLifetime && deltaT > 0.0) {
         charge *= std::exp(deltaT/calib.GetElectronLifetime());
@@ -162,12 +169,16 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     return CP::THandle<CP::TDataHit>(new CP::TDataHit(hit));
 }
 
-double CP::TWireMakeHits::operator() (CP::THitSelection& hits, 
+double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                                       const CP::TCalibPulseDigit& digit,
                                       double t0,
                                       double baselineSigma,
                                       double sampleSigma) {
     double wireCharge = 0.0;
+
+    // Find the time per sample in the digit.
+    double digitStep = digit.GetLastSample()-digit.GetFirstSample();
+    digitStep /= digit.GetSampleCount();
 
     // Make sure we have enough memory allocated for the spectrum.
     if (fNSource < (int) digit.GetSampleCount()) {
@@ -185,7 +196,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         double p = digit.GetSample(i);
         if (!std::isfinite(p)) {
-            CaptError("Channel " << digit.GetChannelId() 
+            CaptError("Channel " << digit.GetChannelId()
                       << " w/ invalid sample " << i << " " << p);
         }
         fSource[i] = digit.GetSample(i);
@@ -198,12 +209,12 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
         fSource[i] += signalOffset;
     }
-    
+
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* sourceHist 
+    TH1F* sourceHist
         = new TH1F((digit.GetChannelId().AsString()+"-source").c_str(),
-                   ("Source for " 
+                   ("Source for "
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
                    digit.GetFirstSample(), digit.GetLastSample());
@@ -211,7 +222,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         sourceHist->SetBinContent(i+1,fSource[i]);
     }
 #endif
-        
+
     std::auto_ptr<TSpectrum> spectrum(new TSpectrum(fNSource));
 
     // Set the parameters to use for the peak search.  These should be in the
@@ -219,15 +230,16 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // most sensitive parameter is the expected peak width.  The width only
     // affects the search since the actual peak width is calculated after the
     // peaks are found.
-    double sigma = 1.0;
+    TChannelCalib channelCalib;
+    double sigma = 650*unit::nanosecond/digitStep;
     double threshold = 1;
     bool removeBkg = false;
     int iterations = 15;
     bool useMarkov = true;
-    int window = 1;
+    int window = 3;
     int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
                                         sigma, threshold,
-                                        removeBkg, iterations, 
+                                        removeBkg, iterations,
                                         useMarkov, window);
 
     // Remove the artificial baseline from the destination.
@@ -237,9 +249,9 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    TH1F* destHist 
+    TH1F* destHist
         = new TH1F((digit.GetChannelId().AsString()+"-peaks").c_str(),
-                   ("Peaks found for " 
+                   ("Peaks found for "
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
                    digit.GetFirstSample(), digit.GetLastSample());
@@ -264,7 +276,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // A threshold will be set in terms of standard deviations of the noise.
     // Peaks less than this are rejected as noise.
     double noise = fWork[inoise];
-    
+
     // Protect against a "zero" channel.
     if (fWork[digit.GetSampleCount()-1] < 100) {
         CaptLog("Wire with no signal: " << digit.GetChannelId()
@@ -332,11 +344,11 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 #endif
 
     for (int i=0; i<found; ++i)  {
-        // No peaks at the ends of the digit.
-        if (xx[i] < fDigitEndSkip) continue;
-        if (xx[i] > digit.GetSampleCount()-fDigitEndSkip - 1) continue;
         // Check the peak size and deconvolution power.
         int index = (int) (xx[i] + 0.5);
+        // No peaks at the ends of the digit.
+        if (index < fDigitEndSkip) continue;
+        if (index > digit.GetSampleCount()-fDigitEndSkip - 1) continue;
         // Apply a cut to the overall peak size. (The digit has had the
         // baseline remove and is in units of charge.
         if (digit.GetSample(index) < fPeakMaximumCut) continue;
@@ -359,7 +371,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     double noiseThreshold
         = std::sqrt(baselineSigma*baselineSigma + sampleSigma*sampleSigma);
     noiseThreshold *= fIntegrationNoiseThreshold;
-    
+
     int hitCount = 0;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
@@ -373,7 +385,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         // halfway between the two peaks.  After this is finished, the
         // "beginIndex" and "endIndex" will be the indices to be looking at.
         if (peaks.size() > 1) {
-            for (std::vector<float>::iterator o = peaks.begin(); 
+            for (std::vector<float>::iterator o = peaks.begin();
                  o != peaks.end(); ++o) {
                 if (o == p) continue;
                 if (*o < *p) {
@@ -395,12 +407,13 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         int endCount = -1;
         for (beginIndex = iPeak-1; j <= beginIndex; --beginIndex) {
             double v = digit.GetSample(beginIndex);
-            if (v<0) break;
             if (endCount > 0 && v > digit.GetSample(beginIndex+1)) break;
             if (endCount > 0 && --endCount == 0) break;
             if (endCount < 0 &&
                 (v < fIntegrationChargeThreshold*peak
-                 || v < noiseThreshold )) endCount = 2;
+                 || v < noiseThreshold )) {
+                endCount = 2.0*unit::microsecond/digitStep + 0.5;
+            }
         }
 
         // Increment endIndex up from the peak center to find the actual
@@ -411,12 +424,13 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         endCount = -1;
         for (endIndex = iPeak+1; endIndex < j; ++endIndex) {
             double v = digit.GetSample(endIndex);
-            if (v<0) break;
             if (endCount > 0 && v > digit.GetSample(endIndex-1)) break;
             if (endCount > 0 && --endCount == 0) break;
             if (endCount < 0 &&
                 (v < fIntegrationChargeThreshold*peak
-                 || v < noiseThreshold )) endCount = 2;
+                 || v < noiseThreshold )) {
+                endCount = 2.0*unit::microsecond/digitStep + 0.5;
+            }
         }
 
         double charge = 0.0;
@@ -436,21 +450,39 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         time /= charge;
         timeSquared /= charge;
 
-        // Find the time per sample in the digit.
-        double digitStep = digit.GetLastSample()-digit.GetFirstSample();
-        digitStep /= digit.GetSampleCount();
-
         double rawRMS = (timeSquared - time*time);
         rawRMS = digitStep*std::sqrt(rawRMS+1.0);
 
         int split = (int) (rawRMS/fPeakRMSLimit + 1.0);
         double step = 1.0*(endIndex-beginIndex)/split;
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        std::ostringstream histName;
+        histName << digit.GetChannelId()
+                 << "-hit"
+                 << hitCount;
+        std::ostringstream histTitle;
+        histTitle << "Samples used in "
+                  << digit.GetChannelId()
+                  << " hit " << hitCount;
+        TH1F* hitHist =
+            new TH1F(histName.str().c_str(),
+                     histTitle.str().c_str(),
+                     endIndex - beginIndex,
+                     beginIndex*digitStep, endIndex*digitStep);
+        for (int baseIndex = beginIndex;
+             baseIndex<endIndex; ++baseIndex) {
+            hitHist->SetBinContent(baseIndex-beginIndex+1,
+                                   digit.GetSample(baseIndex));
+        }
+#endif
+
         /// The loop looks a little odd since it's being done with doubles,
         /// but this means that the "digitized" split size gets distributed
         /// over the entire range instead of all at one end.
-        for (double baseIndex = beginIndex; 
-             baseIndex<endIndex; 
+        for (double baseIndex = beginIndex;
+             baseIndex<endIndex;
              baseIndex += step) {
             int i = (int) baseIndex;
             int j = (int) (baseIndex + step);
@@ -463,7 +495,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
             wireCharge += newHit->GetCharge();
             hits.push_back(newHit);
             if (++hitCount > 50) return wireCharge;
-        }            
+        }
     }
 
     return wireCharge;
