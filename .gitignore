@@ -12,6 +12,8 @@ cleanup.csh
 *.lock
 .gdb*
 *.pyc
+*.png
+*.pdf
 native_version.cmt
 Makefile
 *\#*
