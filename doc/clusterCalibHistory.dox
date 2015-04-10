@@ -12,4 +12,35 @@ FIRST FREEZE
 
 Freeze for the mini-CAPTAIN cosmic ray runs.
 
+
+\section clusterCalib_v0r1p0_history Version 0.1.0
+
+Freeze information:
+   - Freeze Date: Fri Apr 10 10:56:06 2015
+   - Freeze User: mcgrew
+   - Freeze Host: boxer boxer 
+
+
+MAJOR UPDATE:
+
+** Fixed problems with the numeric calculation so that this will work on
+   signals when there isn't any noise.
+
+** Added explicit filter to the deconvolution with an improved estimate of
+   the power in the signal and noise.
+
+** Added parameters for many previously hard coded values.
+
+** Infer the time per sample based on the event.
+
+** Added fake calibration for data.  The fake calibration is actually
+   pretty close to the truth so it's good enough for preliminary studies.
+
+** Improved the model of the electronics response based on looking at
+   pulser data.  The new response has constants which can be determined
+   during calibrations.
+
+** Add lots of internal histograms that can be turned on by setting
+   compilation flags.
+
 */
