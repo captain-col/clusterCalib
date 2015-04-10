@@ -58,7 +58,8 @@ public:
     bool operator () (CP::TEvent& event) {
         CP::THandle<CP::TDigitContainer> drift
             = event.Get<CP::TDigitContainer>("~/digits/drift");
-
+        std::cout << event.GetContext() << std::endl;
+        
         if (!drift) {
             CaptError("No drift signals for this event " << event.GetContext());
             return false;
