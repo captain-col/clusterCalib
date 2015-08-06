@@ -323,7 +323,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 #endif
 
         double wireCharge
-            = makeWireHits(*driftHits,*deconv,t0,
+            = makeWireHits(*driftHits,*calib,*deconv,
+                           t0,
                            fDeconvolution->GetBaselineSigma(),
                            fDeconvolution->GetSampleSigma());
 

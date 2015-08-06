@@ -170,22 +170,23 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 }
 
 double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
-                                      const CP::TCalibPulseDigit& digit,
+                                      const CP::TCalibPulseDigit& calib,
+                                      const CP::TCalibPulseDigit& deconv,
                                       double t0,
                                       double baselineSigma,
                                       double sampleSigma) {
     double wireCharge = 0.0;
 
     // Find the time per sample in the digit.
-    double digitStep = digit.GetLastSample()-digit.GetFirstSample();
-    digitStep /= digit.GetSampleCount();
+    double digitStep = deconv.GetLastSample()-deconv.GetFirstSample();
+    digitStep /= deconv.GetSampleCount();
 
     // Make sure we have enough memory allocated for the spectrum.
-    if (fNSource < (int) digit.GetSampleCount()) {
+    if (fNSource < (int) deconv.GetSampleCount()) {
         if (fSource) delete[] fSource;
         if (fDest) delete[] fDest;
         if (fWork) delete[] fWork;
-        fNSource = 2*digit.GetSampleCount();
+        fNSource = 2*deconv.GetSampleCount();
         fSource = new float[fNSource];
         fDest = new float[fNSource];
         fWork = new float[fNSource];
@@ -193,13 +194,13 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
     // Fill the spectrum and reset the destination.
     double signalOffset = 100000.0;
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        double p = digit.GetSample(i);
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
+        double p = deconv.GetSample(i);
         if (!std::isfinite(p)) {
-            CaptError("Channel " << digit.GetChannelId()
+            CaptError("Channel " << deconv.GetChannelId()
                       << " w/ invalid sample " << i << " " << p);
         }
-        fSource[i] = digit.GetSample(i);
+        fSource[i] = deconv.GetSample(i);
         fDest[i] = 0.0;
         signalOffset = std::max(signalOffset, std::abs(fSource[i])+100.0);
     }
@@ -207,19 +208,19 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* sourceHist
-        = new TH1F((digit.GetChannelId().AsString()+"-source").c_str(),
+        = new TH1F((deconv.GetChannelId().AsString()+"-source").c_str(),
                    ("Source for "
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+                    + deconv.GetChannelId().AsString()).c_str(),
+                   deconv.GetSampleCount(),
+                   deconv.GetFirstSample(), deconv.GetLastSample());
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         sourceHist->SetBinContent(i+1,fSource[i]);
     }
 #endif
 
     // Add an artificial baseline to the source so that the values are always
     // positive definite (a TSpectrum requirement).
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fSource[i] += signalOffset;
     }
 
@@ -237,57 +238,57 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     int iterations = 15;
     bool useMarkov = true;
     int window = 3;
-    int found = spectrum->SearchHighRes(fSource,fDest,digit.GetSampleCount(),
+    int found = spectrum->SearchHighRes(fSource,fDest,deconv.GetSampleCount(),
                                         sigma, threshold,
                                         removeBkg, iterations,
                                         useMarkov, window);
 
     // Remove the artificial baseline from the destination.
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fDest[i] -= signalOffset;
     }
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist
-        = new TH1F((digit.GetChannelId().AsString()+"-tspectrum").c_str(),
+        = new TH1F((deconv.GetChannelId().AsString()+"-tspectrum").c_str(),
                    ("TSpectrum result for "
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+                    + deconv.GetChannelId().AsString()).c_str(),
+                   deconv.GetSampleCount(),
+                   deconv.GetFirstSample(), deconv.GetLastSample());
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         destHist->SetBinContent(i+1,fDest[i]);
     }
 #endif
 
     // Find the new baseline.
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fWork[i] = fDest[i];
     }
-    std::sort(&fWork[0],&fWork[digit.GetSampleCount()]);
-    double baseline = fWork[digit.GetSampleCount()/2];
+    std::sort(&fWork[0],&fWork[deconv.GetSampleCount()]);
+    double baseline = fWork[deconv.GetSampleCount()/2];
 
     // Find the magnitude of noise for this channel.
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+    for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fWork[i] = std::abs(fDest[i] - baseline);
     }
-    std::sort(&fWork[0],&fWork[digit.GetSampleCount()]);
-    int inoise = 0.7*digit.GetSampleCount();
+    std::sort(&fWork[0],&fWork[deconv.GetSampleCount()]);
+    int inoise = 0.7*deconv.GetSampleCount();
     // A threshold will be set in terms of standard deviations of the noise.
     // Peaks less than this are rejected as noise.
     double noise = fWork[inoise];
 
     // Protect against a "zero" channel.
-    if (fWork[digit.GetSampleCount()-1] < 100) {
-        CaptLog("Wire with no signal: " << digit.GetChannelId()
+    if (fWork[deconv.GetSampleCount()-1] < 100) {
+        CaptLog("Wire with no signal: " << deconv.GetChannelId()
                 << " noise: " << noise
-                << " max: " << fWork[digit.GetSampleCount()-1]);
+                << " max: " << fWork[deconv.GetSampleCount()-1]);
         return wireCharge;
     }
     // Don't bother with channels that have crazy big noise.  This says if the
     // noise is bigger than the peak selection threshold, don't save the wire.
     if (noise > fPeakAreaCut) {
-        CaptLog("Wire with large peak noise: " << digit.GetChannelId()
+        CaptLog("Wire with large peak noise: " << deconv.GetChannelId()
                 << "  noise: " << noise
                 << "  base: " << baseline );
         // return wireCharge;
@@ -339,7 +340,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
     for (int i=0; i<std::min(10,found); ++i) {
         int index = (int) (xx[i] + 0.5);
-        double peak = digit.GetSample(index);
+        double peak = deconv.GetSample(index);
         gHeightHistogram->Fill(std::min(peak,49000.0));
     }
 #endif
@@ -349,10 +350,10 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         int index = (int) (xx[i] + 0.5);
         // No peaks at the ends of the digit.
         if (index < fDigitEndSkip) continue;
-        if (index > digit.GetSampleCount()-fDigitEndSkip - 1) continue;
+        if (index > deconv.GetSampleCount()-fDigitEndSkip - 1) continue;
         // Apply a cut to the overall peak size. (The digit has had the
         // baseline remove and is in units of charge.
-        if (digit.GetSample(index) < fPeakMaximumCut) continue;
+        if (deconv.GetSample(index) < fPeakMaximumCut) continue;
         // Apply a cut to the minimum value of the found peak.
         if (fDest[index] < fPeakAreaCut) continue;
         // Apply a cut based on the noise in the peak search.
@@ -378,8 +379,8 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
          p != peaks.end(); ++p) {
         int iPeak = (int) (*p + 0.5);
         int beginIndex = 0;
-        int endIndex = digit.GetSampleCount();
-        double peak = digit.GetSample(iPeak);
+        int endIndex = deconv.GetSampleCount();
+        double peak = deconv.GetSample(iPeak);
 
         // For the current peak, find the upper and lower bounds of the
         // integration region.  If the peak is close to another, the bound is
@@ -407,8 +408,8 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         int j = beginIndex;
         int endCount = -1;
         for (beginIndex = iPeak-1; j <= beginIndex; --beginIndex) {
-            double v = digit.GetSample(beginIndex);
-            if (endCount > 0 && v > digit.GetSample(beginIndex+1)) break;
+            double v = deconv.GetSample(beginIndex);
+            if (endCount > 0 && v > deconv.GetSample(beginIndex+1)) break;
             if (endCount > 0 && --endCount == 0) break;
             if (endCount < 0 &&
                 (v < fIntegrationChargeThreshold*peak
@@ -424,8 +425,8 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         j = endIndex;
         endCount = -1;
         for (endIndex = iPeak+1; endIndex < j; ++endIndex) {
-            double v = digit.GetSample(endIndex);
-            if (endCount > 0 && v > digit.GetSample(endIndex-1)) break;
+            double v = deconv.GetSample(endIndex);
+            if (endCount > 0 && v > deconv.GetSample(endIndex-1)) break;
             if (endCount > 0 && --endCount == 0) break;
             if (endCount < 0 &&
                 (v < fIntegrationChargeThreshold*peak
@@ -441,7 +442,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
         // Find the raw RMS for the peak.
         for (int j=beginIndex; j<endIndex; ++j) {
-            double v = digit.GetSample(j);
+            double v = deconv.GetSample(j);
             if (v<0.1) v = 0.1;
             charge += v;
             time += v*j;
@@ -460,12 +461,12 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
         std::ostringstream histName;
-        histName << digit.GetChannelId()
+        histName << deconv.GetChannelId()
                  << "-hit"
                  << hitCount;
         std::ostringstream histTitle;
         histTitle << "Samples used in "
-                  << digit.GetChannelId()
+                  << deconv.GetChannelId()
                   << " hit " << hitCount;
         TH1F* hitHist =
             new TH1F(histName.str().c_str(),
@@ -475,7 +476,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         for (int baseIndex = beginIndex;
              baseIndex<endIndex; ++baseIndex) {
             hitHist->SetBinContent(baseIndex-beginIndex+1,
-                                   digit.GetSample(baseIndex));
+                                   deconv.GetSample(baseIndex));
         }
 #endif
 
@@ -487,7 +488,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
              baseIndex += step) {
             int i = (int) baseIndex;
             int j = (int) (baseIndex + step);
-            CP::THandle<CP::THit> newHit = MakeHit(digit, digitStep, t0,
+            CP::THandle<CP::THit> newHit = MakeHit(deconv, digitStep, t0,
                                                    baselineSigma,
                                                    sampleSigma,
                                                    i, j,
