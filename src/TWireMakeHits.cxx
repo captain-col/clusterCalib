@@ -192,6 +192,15 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         fWork = new float[fNSource];
     }
 
+    std::ostringstream histName;
+    histName << "wire-"
+             << CP::TChannelInfo::Get().GetWireNumber(deconv.GetChannelId());
+
+    std::ostringstream histTitle ;
+    histTitle << "wire "
+             << CP::TChannelInfo::Get().GetWireNumber(deconv.GetChannelId())
+             << " (" << deconv.GetChannelId().AsString() << ")";
+
     // Fill the spectrum and reset the destination.
     double signalOffset = 100000.0;
     for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
@@ -207,14 +216,27 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
+    TH1F* calibHist
+        = new TH1F((histName.str()+"-calib").c_str(),
+                   ("Calibration for "
+                    + histTitle.str()).c_str(),
+                   calib.GetSampleCount(),
+                   calib.GetFirstSample(), calib.GetLastSample());
+    for (std::size_t i = 0; i<calib.GetSampleCount(); ++i) {
+        calibHist->SetBinContent(i+1,calib.GetSample(i));
+    }
+#endif
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
     TH1F* sourceHist
-        = new TH1F((deconv.GetChannelId().AsString()+"-source").c_str(),
-                   ("Source for "
-                    + deconv.GetChannelId().AsString()).c_str(),
+        = new TH1F((histName.str()+"-deconv").c_str(),
+                   ("Deconvolution for "
+                    + histTitle.str()).c_str(),
                    deconv.GetSampleCount(),
                    deconv.GetFirstSample(), deconv.GetLastSample());
     for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
-        sourceHist->SetBinContent(i+1,fSource[i]);
+        sourceHist->SetBinContent(i+1,deconv.GetSample(i));
     }
 #endif
 
@@ -251,9 +273,9 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist
-        = new TH1F((deconv.GetChannelId().AsString()+"-tspectrum").c_str(),
+        = new TH1F((histName.str()+"-tspectrum").c_str(),
                    ("TSpectrum result for "
-                    + deconv.GetChannelId().AsString()).c_str(),
+                    + histTitle.str()).c_str(),
                    deconv.GetSampleCount(),
                    deconv.GetFirstSample(), deconv.GetLastSample());
     for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
