@@ -71,12 +71,13 @@ private:
     /// A buffer for local work.
     float* fWork;
 
-    /// The charge required at the peak for it to be considered valid.
+    /// The required charge in the sample at the peak required for it to be
+    /// considered valid.  This is pedestal subtracted and after the response
+    /// function has been deconvoluted.
     double fPeakMaximumCut;
 
-    /// The power in the TSpectrum deconvolution for the peak for it to be
-    /// considered valid.
-    double fPeakDeconvolutionCut;
+    /// The required area in the peak as estimated by TSpectrum.
+    double fPeakAreaCut;
 
     /// The noise threshold in "RMS" of the measured noise for the channel
     /// (i.e. "sigma" fluctuation before it's not considered noise).  The

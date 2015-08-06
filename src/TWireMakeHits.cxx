@@ -32,9 +32,9 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.charge");
 
-    fPeakDeconvolutionCut
+    fPeakAreaCut
         = CP::TRuntimeParameters::Get().GetParameterD(
-            "clusterCalib.peakSearch.deconvolution");
+            "clusterCalib.peakSearch.area");
 
     fNoiseThresholdCut
         = CP::TRuntimeParameters::Get().GetParameterD(
@@ -204,12 +204,6 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         signalOffset = std::max(signalOffset, std::abs(fSource[i])+100.0);
     }
 
-    // Add an artificial baseline to the source so that the values are always
-    // positive definite (a TSpectrum requirement).
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
-        fSource[i] += signalOffset;
-    }
-
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* sourceHist
@@ -222,6 +216,12 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         sourceHist->SetBinContent(i+1,fSource[i]);
     }
 #endif
+
+    // Add an artificial baseline to the source so that the values are always
+    // positive definite (a TSpectrum requirement).
+    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+        fSource[i] += signalOffset;
+    }
 
     std::auto_ptr<TSpectrum> spectrum(new TSpectrum(fNSource));
 
@@ -250,8 +250,8 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* destHist
-        = new TH1F((digit.GetChannelId().AsString()+"-peaks").c_str(),
-                   ("Peaks found for "
+        = new TH1F((digit.GetChannelId().AsString()+"-tspectrum").c_str(),
+                   ("TSpectrum result for "
                     + digit.GetChannelId().AsString()).c_str(),
                    digit.GetSampleCount(),
                    digit.GetFirstSample(), digit.GetLastSample());
@@ -284,12 +284,13 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
                 << " max: " << fWork[digit.GetSampleCount()-1]);
         return wireCharge;
     }
-    // Don't bother with channels that have crazy big noise.
-    if (noise > fPeakDeconvolutionCut) {
+    // Don't bother with channels that have crazy big noise.  This says if the
+    // noise is bigger than the peak selection threshold, don't save the wire.
+    if (noise > fPeakAreaCut) {
         CaptLog("Wire with large peak noise: " << digit.GetChannelId()
                 << "  noise: " << noise
                 << "  base: " << baseline );
-        return wireCharge;
+        // return wireCharge;
     }
 
 #define STANDARD_HISTOGRAM
@@ -299,7 +300,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     if (!gNoiseHistogram) {
         gNoiseHistogram
             = new TH1F("peakSearchNoise",
-                       "Peak height sigma for all wires",
+                       "Peak area sigma for all wires",
                        100, 0.0, 5000);
     }
     gNoiseHistogram->Fill(noise);
@@ -353,7 +354,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         // baseline remove and is in units of charge.
         if (digit.GetSample(index) < fPeakMaximumCut) continue;
         // Apply a cut to the minimum value of the found peak.
-        if (fDest[index] < fPeakDeconvolutionCut) continue;
+        if (fDest[index] < fPeakAreaCut) continue;
         // Apply a cut based on the noise in the peak search.
         if (fDest[index] < noise*fNoiseThresholdCut + baseline) continue;
         peaks.push_back(xx[i]);
@@ -494,7 +495,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
             if (!newHit) continue;
             wireCharge += newHit->GetCharge();
             hits.push_back(newHit);
-            if (++hitCount > 50) return wireCharge;
+            // if (++hitCount > 50) return wireCharge;
         }
     }
 

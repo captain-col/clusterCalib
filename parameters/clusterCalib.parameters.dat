@@ -21,9 +21,19 @@ acceptance.  The charge is the charge value at the peak.  The deconvolution
 is the estimated power from the SearchHighRes() output.  The noise is the
 number of RMS sigma above the random noise before peak is taken as signal.
 
-< clusterCalib.peakSearch.charge = 3500 >
-< clusterCalib.peakSearch.deconvolution = 6000 >
-< clusterCalib.peakSearch.noise = 4.0 >
+The charge value in the calibrated charge histogram after the response
+function has been deconvolved.  The units are in collected electrons
+
+< clusterCalib.peakSearch.charge = 8000 >
+
+The area as estimated by TSpectrum.  The units are in collected electrons.
+
+< clusterCalib.peakSearch.area = 3000 >
+
+Limit peaks that are close to the measured noise in the event.  If it's
+less than this, it's assumed to be random noise.
+
+< clusterCalib.peakSearch.noise = 0.0 >
 
 The number of samples to skip when searching for wire hits.  This avoids a
 problem with "FFT wrap around", and because of the trigger, there shouldn't
@@ -34,7 +44,7 @@ be hits there anyway.
 Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
 
-< clusterCalib.peakSearch.rmsLimit = 4000 ns >
+< clusterCalib.peakSearch.rmsLimit = 4000000 ns >
 
 Set the amount of time domain smoothing to be applied to the input signal
 before applying the deconvolution.  The value controls the number of
