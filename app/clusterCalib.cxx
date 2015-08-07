@@ -64,10 +64,8 @@ public:
         fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
         fClusterCalib->ApplyEfficiencyCalibration(fApplyEfficiencyCalibration);
 
-        // Run the calibration on the event.
-        (*fClusterCalib)(event);
-
-        // Possibly run a filter to reject noise events.
+        // Possibly run a filter to reject noise events using uncalibrated
+        // data.
         if (fActivityFilter) {
             bool result = (*fActivityFilter)(event);
             if (!result) {
@@ -76,6 +74,9 @@ public:
             }
         }
         
+        // Run the calibration on the event.
+        (*fClusterCalib)(event);
+
         // Save everything that gets to here.
         return true;
     }

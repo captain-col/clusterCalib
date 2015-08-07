@@ -24,11 +24,11 @@ number of RMS sigma above the random noise before peak is taken as signal.
 The charge value in the calibrated charge histogram after the response
 function has been deconvolved.  The units are in collected electrons
 
-< clusterCalib.peakSearch.charge = 7000 >
+< clusterCalib.peakSearch.charge = 4000 >
 
 The area as estimated by TSpectrum.  The units are in collected electrons.
 
-< clusterCalib.peakSearch.area = 7000 >
+< clusterCalib.peakSearch.area = 3000 >
 
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
