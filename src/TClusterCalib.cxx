@@ -10,6 +10,7 @@
 #include <HEPUnits.hxx>
 #include <CaptGeomId.hxx>
 #include <TUnitsTable.hxx>
+#include <TChannelCalib.hxx>
 
 #include <TChannelInfo.hxx>
 
@@ -134,6 +135,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             continue;
         }
 
+        CP::TChannelCalib channelCalib;
+        if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
+            continue;
+        }
+        
         CP::TGeometryId pulseGeom
             = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
 
@@ -184,14 +190,14 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-            TH1F* projHist
-                = new TH1F((calib->GetChannelId().AsString()+"-proj").c_str(),
-                           ("Projection for "
-                            + calib->GetChannelId().AsString()).c_str(),
-                           100, -50000.0, 50000.0);
-            for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
-                projHist->Fill(calib->GetSample(i));
-            }
+        TH1F* projHist
+            = new TH1F((calib->GetChannelId().AsString()+"-proj").c_str(),
+                       ("Projection for "
+                        + calib->GetChannelId().AsString()).c_str(),
+                       100, -50000.0, 50000.0);
+        for (std::size_t i = 0; i<calib->GetSampleCount(); ++i) {
+            projHist->Fill(calib->GetSample(i));
+        }
 #endif
 
 #define STANDARD_HISTOGRAM
