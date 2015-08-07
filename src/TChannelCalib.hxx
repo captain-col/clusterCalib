@@ -21,6 +21,9 @@ public:
     TChannelCalib();
     ~TChannelCalib();
 
+    /// This is true if the channel is considered good.
+    bool IsGoodChannel(CP::TChannelId id);
+
     /// This returns true if the signal is a bipolar signal.  The collection
     /// wires and PMTs are unipolar.  The induction wires are bipolar.
     bool IsBipolarSignal(CP::TChannelId id);
@@ -65,6 +68,7 @@ public:
     /// Get the pulse shaping for the ASIC as a function of time.
     /// microsecond.
     double GetPulseShape(CP::TChannelId id, double t);
+
 };
 
 #endif

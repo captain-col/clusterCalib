@@ -11,12 +11,21 @@
 #include <TRuntimeParameters.hxx>
 #include <CaptGeomId.hxx>
 #include <TChannelInfo.hxx>
+#include <TTPCChannelId.hxx>
 
 #define SKIP_DATA_CALIBRATION
 
 CP::TChannelCalib::TChannelCalib() { }
 
 CP::TChannelCalib::~TChannelCalib() { } 
+
+bool CP::TChannelCalib::IsGoodChannel(CP::TChannelId id) {
+    if (id == TTPCChannelId(1,13,16)) {
+        CaptLog("Bad Channel " << id);
+        return false;
+    }
+    return true;
+}
 
 bool CP::TChannelCalib::IsBipolarSignal(CP::TChannelId id) {
     if (id.IsMCChannel()) {
