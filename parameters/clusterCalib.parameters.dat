@@ -96,3 +96,16 @@ are used to tune the overall response of the wires (and should be 1.0)
 < clusterCalib.mc.wire.collection.v = 1.0 > 
 < clusterCalib.mc.wire.collection.u = 1.0 > 
 
+Define the activity filter to determine if an event should be run through
+the full calibration and hit finding.  The filter can be turned on or off
+by using the "-O filter" option from the clusterCalib command line.  The
+required channels are the number of channels that must have activity.  The
+required significance is the number of "sigma" a channel must be above the
+base line to be considered active.  The minimum signal is the minimum
+threshold in ADC counts to be considered active.
+
+< clusterCalib.filter.requiredChannels = 6 >
+< clusterCalib.filter.requiredSignificance = 7.0 >
+< clusterCalib.filter.minimumSignal = 30 >
+
+

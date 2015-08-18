@@ -4,33 +4,43 @@
 #include <TCalibPulseDigit.hxx>
 #include <TChannelInfo.hxx>
 
+#include <TRuntimeParameters.hxx>
 #include <CaptGeomId.hxx>
 #include <HEPUnits.hxx>
 
 #include <vector>
 
-CP::TActivityFilter::TActivityFilter() {}
+CP::TActivityFilter::TActivityFilter() {
+    fRequiredChannels
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.filter.requiredChannels");
+    fRequiredSignificance
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.filter.requiredSignificance");
+    fMinimumSignal 
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.filter.minimumSignal");
+}
 
 CP::TActivityFilter::~TActivityFilter() {}
 
 bool CP::TActivityFilter::operator() (CP::TEvent& event) {
-    CaptLog("Filter event " << event.GetContext());
     CP::TChannelInfo::Get().SetContext(event.GetContext());
 
 #ifdef PMT_ACTIVITY_CHECK
     /// Check if there is any PMT activity
     CP::THandle<CP::TDigitContainer> pmt
         = event.Get<CP::TDigitContainer>("~/digits/pmt");
-
-
 #endif
-    
+
+
+    /// There wasn't PMT activity, so check for wire activity.
     CP::THandle<CP::TDigitContainer> drift
         = event.Get<CP::TDigitContainer>("~/digits/drift");
+    if (!drift) return false;
+
     std::vector<double> work;
     
-    double minimumSignal = 30; // about a 1/3 mip.
-    double significance = 7.0;
     int significantChannels = 0;
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* digit
@@ -55,7 +65,10 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         }
         std::sort(work.begin(), work.end());
         double pedestal = work[0.5*digit->GetSampleCount()];
+
+        // Reject channels that have a strange pedestal
         if (pedestal < 200) continue;
+        if (pedestal > 3000) continue;
         
         // Calculate the raw channel sigma.
         double channelSigma = 0.0;
@@ -65,8 +78,12 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         }
         channelSigma /= digit->GetSampleCount();
         channelSigma = std::sqrt(channelSigma);
-        if (channelSigma < 1) continue;
+
         
+        // Reject channels that don't show any activity.
+        if (channelSigma < 0.5) continue;
+
+#ifdef CALCULATE_GAUSSIAN_SIGMA
         // Calculate the Gaussian sigma for the channel.
         for (std::size_t i=1; i< digit->GetSampleCount(); ++i) {
             work[i] = std::abs(digit->GetSample(i)-digit->GetSample(i-1));
@@ -74,6 +91,9 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         work[0] = 0.0;
         std::sort(work.begin(), work.end());
         int iMedian = 0.52*digit->GetSampleCount();
+
+        // Count the number of channels that have the same value as the median
+        // ADC difference.
         int iLow = iMedian;
         while (iLow > 0) {
             if (work[iLow] != work[iMedian]) break;
@@ -86,21 +106,29 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         }
         double lowDiff = iMedian-iLow;
         double diff = iHigh - iLow;
-        double gaussianSigma = work[iMedian] + lowDiff/diff;
 
-        // Check if there is activity on this channel.
+        // Interpolate between the integer values for the ADC counts to find
+        // the interpolated median.
+        double gaussianSigma = work[iMedian] + lowDiff/diff;
+#endif        
+
+        // Check if there is activity on this channel.  This ignores the very
+        // beginning and very end of the time window.
         for (std::size_t i=0.05*digit->GetSampleCount();
              i < 0.95*digit->GetSampleCount(); ++i) {
             double signal = digit->GetSample(i)-pedestal;
-            if (significance*channelSigma <= signal
-                && minimumSignal <= signal) {
+            if (fRequiredSignificance*channelSigma <= signal
+                && fMinimumSignal <= signal) {
                 ++significantChannels;
                 break;
             }
         }
     }
 
-    std::cout << significantChannels << " " << significance << std::endl;
-    if (significantChannels > 6) return true;
+    if (significantChannels >= fRequiredChannels) {
+        CaptLog("Save event: " << event.GetContext());
+        return true;
+    }
+
     return false;
 }
