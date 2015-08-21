@@ -75,6 +75,8 @@ public:
             return false;
         }
 
+        CP::TChannelInfo::Get().SetContext(event.GetContext());
+        
         std::vector<float> powerRange;
         for (std::size_t d = 0; d < drift->size(); ++d) {
             const CP::TPulseDigit* pulse 
@@ -121,10 +123,24 @@ public:
             
             fFFT->Transform();
 
+            int wire =
+                CP::TChannelInfo::Get().GetWireNumber(pulse->GetChannelId());
+            
+            std::ostringstream histBaseName;
+            if (wire>0) histBaseName << "W:"
+                                     << std::setw(4) 
+                                     << std::setfill('0') << wire<<"-";
+            std::string chanName = pulse->GetChannelId().AsString().substr(4);
+            histBaseName << chanName;
+            
+            std::ostringstream histBaseTitle;
+            if (wire>0) histBaseTitle << "wire " << wire << " ";
+            histBaseTitle << chanName;
+            
             TH1F* fftHist 
-                = new TH1F((pulse->GetChannelId().AsString()+"-fft").c_str(),
+                = new TH1F((histBaseName.str()+"-fft").c_str(),
                            ("FFT for " 
-                            + pulse->GetChannelId().AsString()).c_str(),
+                            + histBaseTitle.str()).c_str(),
                            nSize/2-1, deltaFreq, nyquistFreq);
             fftHist->SetYTitle("Power (#frac{ADC^{2}}{#Delta#it{f}})");
             fftHist->SetXTitle("Frequency (Hz)");
