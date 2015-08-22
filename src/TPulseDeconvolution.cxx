@@ -291,6 +291,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         double delta = std::abs(digit.GetSample(i) - digit.GetSample(i-1));
         diff[i] = delta;
     }
+    diff[0] = 0.0;
     std::sort(diff.begin(), diff.end());
 
     // The 52 percentile is a of the sample-to-sample differences is a good
@@ -300,7 +301,26 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // 68%/sqrt(2)).  Then because of the ordering after the sort, the bin we
     // look at is 1.0-52%.  The minimum allowable fluctuation is 1 electron
     // charge.
-    fSampleSigma = diff[0.52*digit.GetSampleCount()];
+    int iMedian = 0.52*diff.size();
+
+    // Count the number of channels that have the same value as the median
+    // ADC difference.
+    int iLow = iMedian;
+    while (iLow > 0) {
+        if (diff[iLow] != diff[iMedian]) break;
+        --iLow;
+    }
+    std::size_t iHigh = iMedian;
+    while ((iHigh+1)<diff.size()) {
+        if (diff[iHigh] != diff[iMedian]) break;
+        ++iHigh;
+    }
+    double lowBound = iMedian-iLow;
+    double range = iHigh - iLow;
+    
+    // Interpolate between the integer values for the ADC counts to find
+    // the interpolated median.
+    double fSampleSigma = diff[iMedian] + lowBound/range;
     if (fSampleSigma < 1.0) fSampleSigma = 1.0;
     
     // Define a cut for the maximum change between two samples.  If the
@@ -487,7 +507,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     }
 
     // The baseline will equal to unfilledBaseline for any point that is not
-    // baseline like with gaps that correspond to where the sample is changing
+    // baseline-like with gaps that correspond to where the sample is changing
     // more rapidly that would be expected from pure statistics.  The next
     // step is to tentatively interpolate into those zones and check if the
     // interpolated baseline is bigger than the sample.  If the interpolated
@@ -626,5 +646,4 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     else {
         fBaselineSigma = 0.0;
     }
-
 }

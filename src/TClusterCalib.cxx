@@ -19,6 +19,7 @@
 #include <TProfile.h>
 
 #include <memory>
+#include <limits>
 
 // The next two includes are for debugging against MC input.  The are needed
 // to fill some diagnostic histograms.
@@ -53,28 +54,19 @@ CP::TClusterCalib::TClusterCalib() {
 CP::TClusterCalib::~TClusterCalib() {}
 
 bool CP::TClusterCalib::operator()(CP::TEvent& event) {
-    CP::THandle<CP::TDigitContainer> pmt
-        = event.Get<CP::TDigitContainer>("~/digits/pmt");
-    CP::THandle<CP::TDigitContainer> drift
-        = event.Get<CP::TDigitContainer>("~/digits/drift");
-
     CaptLog("Process " << event.GetContext());
     CP::TChannelInfo::Get().SetContext(event.GetContext());
-
-    std::auto_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
-
-    CP::TPMTMakeHits makePMTHits;
-    double t0 = 1E+50;
 
     ///////////////////////////////////////////////////////////////////////
     // PMT Calibration
     ///////////////////////////////////////////////////////////////////////
+    CP::THandle<CP::TDigitContainer> pmt
+        = event.Get<CP::TDigitContainer>("~/digits/pmt");
 
-    if (!pmt) {
-        CaptLog("No PMT signals for this event " << event.GetContext());
-        t0 = 0.0;
-    }
-    else {
+    std::auto_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
+    CP::TPMTMakeHits makePMTHits;
+
+    if (pmt) {
         // Calibrate the PMT pulses and turn them into hits.
         for (std::size_t d = 0; d < pmt->size(); ++d) {
             const CP::TPulseDigit* pulse
@@ -87,33 +79,29 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
             makePMTHits(*pmtHits,*calib);
         }
-        if (pmtHits->size() > 0) {
-            for (CP::THitSelection::iterator p = pmtHits->begin();
-                 p != pmtHits->end(); ++p) {
-                t0 = std::min((*p)->GetTime(),t0);
-            }
-            // Add the pmt hits to the output.
-            CP::THandle<CP::TDataVector> hits
-                = event.Get<CP::TDataVector>("~/hits");
-            hits->AddDatum(pmtHits.release());
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+    // Find the event time zero.
+    ///////////////////////////////////////////////////////////////////////
+    double t0 = std::numeric_limits<double>::max();
+    if (pmtHits->size() > 0) {
+        for (CP::THitSelection::iterator p = pmtHits->begin();
+             p != pmtHits->end(); ++p) {
+            t0 = std::min((*p)->GetTime(),t0);
         }
+        // Add the pmt hits to the output.
+        CP::THandle<CP::TDataVector> hits
+            = event.Get<CP::TDataVector>("~/hits");
+        hits->AddDatum(pmtHits.release());
     }
 
     ///////////////////////////////////////////////////////////////////////
     /// Drift Calibration
     ///////////////////////////////////////////////////////////////////////
 
-    if (!drift) {
-        CaptLog("No drift signals for this event " << event.GetContext());
-        return false;
-    }
-
-
-    std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration,
-                                   fApplyEfficiencyCalibration);
-
-    // Make a container to hold the deconvoluted digits.
+    // Check to see if the deconvoluted digits are going to be saved.  If they
+    // are, then create the container to hold them.
     if (fSaveCalibratedPulses) {
         CP::THandle<CP::TDataVector> dv
             = event.Get<CP::TDataVector>("~/digits");
@@ -121,10 +109,16 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         dv->AddDatum(dg);
     }
 
-    // Check to see if the drift-deconv digit container exists.  If it does
-    // exist, then it will be filled with the deconvoluted digits.
-    CP::THandle<CP::TDigitContainer> driftDeconv
-        = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
+    CP::THandle<CP::TDigitContainer> drift
+        = event.Get<CP::TDigitContainer>("~/digits/drift");
+    if (!drift) {
+        CaptLog("No drift signals for this event " << event.GetContext());
+        return false;
+    }
+
+    std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
+    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration,
+                                   fApplyEfficiencyCalibration);
 
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
@@ -149,10 +143,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         if (d%100 == 0) {
             CaptLog("Calibrate " << pulse->GetChannelId().AsString()
-                     << " " << std::setw(40) << pulseGeom << std::setw(0));
-        }
-        else {
-            CaptInfo("Calibrate " << pulse->GetChannelId().AsString()
                      << " " << std::setw(40) << pulseGeom << std::setw(0));
         }
 
@@ -312,7 +302,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 #endif
 
         std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-
         if (!deconv.get()) continue;
 
 #ifdef FILL_HISTOGRAM
@@ -369,7 +358,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             }
         }
 #endif
-
+        
+        // Check to see if the drift-deconv digit container exists.  If it does
+        // exist, then it will be filled with the deconvoluted digits.
+        CP::THandle<CP::TDigitContainer> driftDeconv
+            = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
         if (driftDeconv) driftDeconv->push_back(deconv.release());
     }
 
