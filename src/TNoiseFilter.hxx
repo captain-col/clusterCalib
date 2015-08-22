@@ -14,11 +14,22 @@ namespace CP {
 };
 
 
+/// A noise filter for a wire based on the assumed electronics response, and
+/// the power spectrum measured on the wire.  The filter is based on an
+/// estimate of the Gaussian noise seen in the wire power spectrum, and a
+/// "notch" filter to remove any fixed frequency noise present on the wire.
 class CP::TNoiseFilter {
 public:
 
     /// Create a noise filter for a particular measurement and response
-    /// function.
+    /// function.  The noisePower is a multiplicitive factor applied to the
+    /// estimated Gaussian noise.  A value of zero means no filtering, a large
+    /// value means more filtering.  A value of 1.0 means that the raw
+    /// estimated noise is used in the filter (a good first guess).  The
+    /// spikePower is a multiplicitive factor applied to the "notch" filter.
+    /// Zero means that the notch filter is not applied.  A value of 1.0 means
+    /// that the esimated power for the fixed frequency noise is directly used
+    /// in the filter (a good first guess).
     TNoiseFilter(double noisePower, double spikePower);
     virtual ~TNoiseFilter();
 
@@ -42,10 +53,7 @@ private:
     std::vector<double> fWork;
     
     /// A work area.
-    std::vector<double> fAverage;
-    
-    /// A work area.
-    std::vector<double> fSigma;
+    std::vector<float> fAverage;
     
     /// The power of the gaussian noise.
     double fNoisePower;
