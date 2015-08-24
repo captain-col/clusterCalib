@@ -24,16 +24,26 @@ number of RMS sigma above the random noise before peak is taken as signal.
 The charge value in the calibrated charge histogram after the response
 function has been deconvolved.  The units are in collected electrons
 
-< clusterCalib.peakSearch.charge = 4000 >
+< clusterCalib.peakSearch.charge.collection = 100 >
+< clusterCalib.peakSearch.charge.induction = 100 >
 
 The area as estimated by TSpectrum.  The units are in collected electrons.
 
-< clusterCalib.peakSearch.area = 3000 >
+< clusterCalib.peakSearch.area.collection = 3000 >
+< clusterCalib.peakSearch.area.induction = 3000 >
+
+The peak search needs to assume a width with it is starting.  The width
+should be approximately the RMS of the narrowest "real" peak, but isn't
+extremely sensitive.  The better this estimate is, the better the search
+will work.
+
+< clusterCalib.peakSearch.width.collection = 650 >
+< clusterCalib.peakSearch.width.induction = 1300 >
 
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
 
-< clusterCalib.peakSearch.noise = 0.0 >
+< clusterCalib.peakSearch.noise = 7.0 >
 
 The number of samples to skip when searching for wire hits.  This avoids a
 problem with "FFT wrap around", and because of the trigger, there shouldn't
@@ -62,9 +72,10 @@ sample-to-sample variations.
 < clusterCalib.deconvolution.fluctuationCut = 3 >
 
 The cut in standard deviations used to find spikes in the FFT.  Large
-spikes are at fixed frequencies and are filtered..
+spikes are at fixed frequencies and are filtered.  A larger spikePower
+means more filtering.  This is disabled if it's negative.
 
-< clusterCalib.deconvolution.spikePower = 5.0 >
+< clusterCalib.deconvolution.spikePower = 1.0 >
 
 The weight to be applied to the "power" in the noise model used by the
 filter.  This should have a value "near" to one.
