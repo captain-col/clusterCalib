@@ -366,7 +366,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         int index = (int) (xx[i] + 0.5);
         // No peaks at the ends of the digit.
         if (index < fDigitEndSkip) continue;
-        if (index > deconv.GetSampleCount()-fDigitEndSkip - 1) continue;
+        if (index > (int) deconv.GetSampleCount()-fDigitEndSkip - 1) continue;
         // Apply a cut to the overall peak size. (The digit has had the
         // baseline remove and is in units of charge).
         if (deconv.GetSample(index) < peakMaximumCut) continue;
