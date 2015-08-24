@@ -308,8 +308,6 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         // return wireCharge;
     }
 
-    CaptLog("Noise on " << histName.str() << " " << noise << " " << baseline);
-    
 #define STANDARD_HISTOGRAM
 #ifdef STANDARD_HISTOGRAM
 #undef STANDARD_HISTOGRAM
