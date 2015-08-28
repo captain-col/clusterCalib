@@ -632,11 +632,12 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         }
         fBaselineSigma += baseline[i]*baseline[i];
         aveBaseline += baseline[i];
-        if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
-            // Only remove the baseline if it's a bipolar channel.
-            double d = digit.GetSample(i) - baseline[i];
-            digit.SetSample(i,d);
-        }
+#ifdef ONLY_BIPOLAR_BASELINE
+        // Only remove the baseline if it's a bipolar channel.
+        if (!channelCalib.IsBipolarSignal(digit.GetChannelId())) continue;
+#endif
+        double d = digit.GetSample(i) - baseline[i];
+        digit.SetSample(i,d);
     }
     fBaselineSigma /= digit.GetSampleCount();
     aveBaseline /= digit.GetSampleCount();
