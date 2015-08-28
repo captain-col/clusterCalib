@@ -4,7 +4,7 @@
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
 #include <TChannelInfo.hxx>
-#include <TDataHit.hxx>
+#include <TFADCHit.hxx>
 #include <HEPUnits.hxx>
 #include <THandle.hxx>
 #include <TCaptLog.hxx>
@@ -86,11 +86,20 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     double sampleSquared = 0.0;
     double samples = 1.0;
 
-    double b1 = digit.GetSample(beginIndex+1);
-    double b2 = digit.GetSample(endIndex-1);
+    // Find the start and stop time.
+    double startTime = beginIndex*step + digit.GetFirstSample();
+    double stopTime = endIndex*step + digit.GetFirstSample();
+
+    // Copy the samples into the hit.
+    std::vector<double> sampleCharge(endIndex-beginIndex);
+    for (std::size_t i = beginIndex; i<endIndex; ++i) {
+        sampleCharge[i-beginIndex] = digit.GetSample(i);
+    }
 
     // Find the peak charge, average sample index and sample index squared for
     // the peak.  The average is charge weighted.
+    double b1 = digit.GetSample(beginIndex+1); 
+    double b2 = digit.GetSample(endIndex-1);
     for (int j=beginIndex+1; j<endIndex; ++j) {
         double v = digit.GetSample(j);
         double baseline = b1*(endIndex-j-1) + b2*(j-beginIndex-1);
@@ -111,7 +120,7 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
 
     // Convert the sample index into a time.
     double time = (sample + 0.5)*step + digit.GetFirstSample();
-
+    
     // Find the sample RMS, and then convert into a time RMS.
     double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
 
@@ -174,16 +183,19 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     }
 
     // Build the hit.
-    CP::TWritableDataHit hit;
+    CP::TWritableFADCHit hit;
     hit.SetGeomId(geomId);
     hit.SetDigit(digit.GetParent());
     hit.SetCharge(charge);
     hit.SetChargeUncertainty(chargeUnc);
     hit.SetTime(time);
     hit.SetTimeRMS(rms);
+    hit.SetTimeStart(startTime);
+    hit.SetTimeStop(stopTime);
+    hit.SetTimeSamples(sampleCharge.begin(), sampleCharge.end());
     hit.SetTimeUncertainty(timeUnc);
 
-    return CP::THandle<CP::TDataHit>(new CP::TDataHit(hit));
+    return CP::THandle<CP::TFADCHit>(new CP::TFADCHit(hit));
 }
 
 double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
