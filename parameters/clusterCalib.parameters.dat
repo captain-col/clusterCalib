@@ -24,13 +24,13 @@ number of RMS sigma above the random noise before peak is taken as signal.
 The charge value in the calibrated charge histogram after the response
 function has been deconvolved.  The units are in collected electrons
 
-< clusterCalib.peakSearch.charge.collection = 100 >
-< clusterCalib.peakSearch.charge.induction = 100 >
+< clusterCalib.peakSearch.charge.collection = 800 >
+< clusterCalib.peakSearch.charge.induction = 800 >
 
 The area as estimated by TSpectrum.  The units are in collected electrons.
 
-< clusterCalib.peakSearch.area.collection = 3000 >
-< clusterCalib.peakSearch.area.induction = 3000 >
+< clusterCalib.peakSearch.area.collection = 2000 >
+< clusterCalib.peakSearch.area.induction = 2000 >
 
 The peak search needs to assume a width with it is starting.  The width
 should be approximately the RMS of the narrowest "real" peak, but isn't
@@ -43,7 +43,7 @@ will work.
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
 
-< clusterCalib.peakSearch.noise = 7.0 >
+< clusterCalib.peakSearch.noise = 6.0 >
 
 The number of samples to skip when searching for wire hits.  This avoids a
 problem with "FFT wrap around", and because of the trigger, there shouldn't
@@ -63,17 +63,10 @@ zero means no smoothing.
 
 < clusterCalib.deconvolution.smoothing = 0 >
 
-The pulse deconvolution will remove the baseline from the pulse.  The base
-line is determined by runs of coherenceZone samples with fluctuations of
-less that sigma*fluctuationCut.  The sigma is the sigma of the
-sample-to-sample variations.  
-
-< clusterCalib.deconvolution.coherenceZone = 10 >
-< clusterCalib.deconvolution.fluctuationCut = 3 >
-
-The cut in standard deviations used to find spikes in the FFT.  Large
-spikes are at fixed frequencies and are filtered.  A larger spikePower
-means more filtering.  This is disabled if it's negative.
+The background in the FFT is estimated assuming that the true signal
+spectrum is "smooth".  Spikes are then filtered relative to this estimated
+background times "spikePower".  A larger spikePower means more filtering.
+This is disabled if it's negative.
 
 < clusterCalib.deconvolution.spikePower = 1.0 >
 
@@ -82,17 +75,22 @@ filter.  This should have a value "near" to one.
 
 < clusterCalib.deconvolution.noisePower = 1.0 >
 
-The number of samples inside the coherence zone that vary less than
-fluctuationCut.  If the number is less than this cut, the region is not
-considered baseline.
+The pulse deconvolution will remove the baseline from the pulse.  The base
+line is determined by runs of coherenceZone samples with fluctuations of
+less that sigma*fluctuationCut.  The sigma is the sigma of the
+sample-to-sample variations.  If the number of samples inside the coherence
+zone that vary less than fluctuationCut is less than coherenceCut, then the
+region is not considered baseline.
 
+< clusterCalib.deconvolution.coherenceZone = 10 >
+< clusterCalib.deconvolution.fluctuationCut = 3 >
 < clusterCalib.deconvolution.coherenceCut = 10 >
 
 The baseline can follow a random walk, but if the estimate gets more than
 the this cut times the sigma of the baseline then assume it's actually
 signal.
 
-< clusterCalib.deconvolution.baselineCut = 5 >
+< clusterCalib.deconvolution.baselineCut = -1 >
 
 The threshold for a PMT hit.  The PMT signals are calibrated so that the
 integral of a 1 pe pulse is 1.0, so the peak is typically around 0.05, and

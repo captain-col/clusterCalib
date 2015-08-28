@@ -282,9 +282,11 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // Define a maximum separation between the sample and the median sample.
     // If it's more than this, then the sample is not baseline.  This is one
     // sided.  This is looking at the overall fluctation of the baseline and
-    // prevents large plateaus from being cut.
+    // prevents large plateaus from being cut.  If fBaselineCut is negative,
+    // this is disabled.
     double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
-
+    if (fBaselineCut < 0) baselineCut = 1.0E+16;
+    
     // Find the median sample to sample difference.  Regions where the samples
     // stay withing a small difference don't have a "feature of interest".
     for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
