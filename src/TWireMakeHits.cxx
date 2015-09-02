@@ -65,9 +65,9 @@ CP::TWireMakeHits::TWireMakeHits(bool correctLifetime,
         = CP::TRuntimeParameters::Get().GetParameterI(
             "clusterCalib.peakSearch.endSkip");
 
-    fIntegrationChargeThreshold = 0.1;
+    fIntegrationChargeThreshold = 0.001;
 
-    fIntegrationNoiseThreshold = 1.0;
+    fIntegrationNoiseThreshold = 0.001;
 
 }
 CP::TWireMakeHits::~TWireMakeHits() {
@@ -196,6 +196,27 @@ CP::TWireMakeHits::MakeHit(const CP::TCalibPulseDigit& digit,
     hit.SetTimeUncertainty(timeUnc);
 
     return CP::THandle<CP::TFADCHit>(new CP::TFADCHit(hit));
+}
+
+std::pair<int, int> CP::TWireMakeHits::HitExtent(
+    int peakIndex,
+    const CP::TCalibPulseDigit& deconv,
+    double baselineSigma, double sampleSigma) {
+    double peak = deconv.GetSample(peakIndex);
+    int beginIndex = peakIndex;
+    while (beginIndex>0) {
+        double v = deconv.GetSample(beginIndex);
+        if (v < fIntegrationChargeThreshold*peak) break;
+        --beginIndex;
+    }
+    int endIndex = peakIndex;
+    while (endIndex<deconv.GetSampleCount()) {
+        double v = deconv.GetSample(endIndex);
+        if (v < fIntegrationChargeThreshold*peak) break;
+        ++endIndex;
+    }
+    std::cout << beginIndex << " " << endIndex << std::endl;
+    return std::make_pair(beginIndex,endIndex);
 }
 
 double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
@@ -371,6 +392,13 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
 #endif
 
+    // Now use fWork to mask out peaks that are part of another peak.
+    std::fill(&fWork[0],&fWork[deconv.GetSampleCount()], 0.0);
+    
+    double noiseThreshold
+        = std::sqrt(baselineSigma*baselineSigma + sampleSigma*sampleSigma);
+    noiseThreshold *= fIntegrationNoiseThreshold;
+
     for (int i=0; i<found; ++i)  {
         // Check the peak size and deconvolution power.
         int index = (int) (xx[i] + 0.5);
@@ -384,6 +412,15 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         if (fDest[index] < peakAreaCut) continue;
         // Apply a cut based on the noise in the peak search.
         if (fDest[index] < noise*fNoiseThresholdCut + baseline) continue;
+        // Skip peaks that close to other peaks.
+        if (fWork[index] > 0.5) continue;
+        std::pair<int, int> extent = HitExtent(index,
+                                               deconv,
+                                               baselineSigma,
+                                               sampleSigma);
+        for (int j=extent.first; j<extent.second; ++j) {
+            fWork[j] = 1.0;
+        }
         peaks.push_back(xx[i]);
     }
 
@@ -396,10 +433,6 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     // than a charge and noise threshold.  If more than one peak is
     // found, then the digit is split at the halfway point between the peaks.
     // If the peak is too wide, then the peak is split.
-    double noiseThreshold
-        = std::sqrt(baselineSigma*baselineSigma + sampleSigma*sampleSigma);
-    noiseThreshold *= fIntegrationNoiseThreshold;
-
     int hitCount = 0;
     for (std::vector<float>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
@@ -427,40 +460,15 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
             }
         }
 
-        // Decrement beginIndex down from the peak center to find the actual
-        // integration bounds based on the actual extent of the peak.  This
-        // extends beyond the edge of the peak to pick up some of the
-        // background.
-        int j = beginIndex;
-        int endCount = -1;
-        for (beginIndex = iPeak-1; j <= beginIndex; --beginIndex) {
-            double v = deconv.GetSample(beginIndex);
-            if (endCount > 0 && v > deconv.GetSample(beginIndex+1)) break;
-            if (endCount > 0 && --endCount == 0) break;
-            if (endCount < 0 &&
-                (v < fIntegrationChargeThreshold*peak
-                 || v < noiseThreshold )) {
-                endCount = 2.0*unit::microsecond/digitStep + 0.5;
-            }
-        }
+        std::pair<int, int> extent = HitExtent(iPeak,
+                                               deconv,
+                                               baselineSigma,
+                                               sampleSigma);
 
-        // Increment endIndex up from the peak center to find the actual
-        // integration bounds based on the actual extent of the peak.  This
-        // extends beyond the edge of the peak to pick up some of the
-        // background.
-        j = endIndex;
-        endCount = -1;
-        for (endIndex = iPeak+1; endIndex < j; ++endIndex) {
-            double v = deconv.GetSample(endIndex);
-            if (endCount > 0 && v > deconv.GetSample(endIndex-1)) break;
-            if (endCount > 0 && --endCount == 0) break;
-            if (endCount < 0 &&
-                (v < fIntegrationChargeThreshold*peak
-                 || v < noiseThreshold )) {
-                endCount = 2.0*unit::microsecond/digitStep + 0.5;
-            }
-        }
-
+        if (beginIndex < extent.first) beginIndex = extent.first;
+        
+        if (extent.second < endIndex) endIndex = extent.second;
+        
         double charge = 0.0;
         double time = 0.0;
         double timeSquared = 0.0;
@@ -505,7 +513,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         }
 #endif
 
-        /// The loop looks a little odd since it's being done with doubles,
+        /// The loop looks a odd since it's being done with doubles,
         /// but this means that the "digitized" split size gets distributed
         /// over the entire range instead of all at one end.
         for (double baseIndex = beginIndex;
@@ -526,6 +534,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
 
     if (hitCount < 1) return wireCharge;
     
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* calibHist
@@ -539,6 +548,7 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
     }
 #endif
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* sourceHist

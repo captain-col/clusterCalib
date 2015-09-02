@@ -49,6 +49,11 @@ private:
             double baselineSigma, double sampleSigma,
             int beginIndex, int endIndex, bool split);
 
+    /// Determine the bounds of the hit.
+    std::pair<int, int> HitExtent(int peakIndex,
+                                  const CP::TCalibPulseDigit& deconv,
+                                  double baselineSigma, double sampleSigma);
+
     /// If this is true, then the electron lifetime correction is applied.
     /// The correction should normally be applied, but for certain
     /// calibrations it needs to be turned off.  This is controlled in the
