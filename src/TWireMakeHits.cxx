@@ -439,7 +439,6 @@ double CP::TWireMakeHits::operator() (CP::THitSelection& hits,
         int iPeak = (int) (*p + 0.5);
         int beginIndex = 0;
         int endIndex = deconv.GetSampleCount();
-        double peak = deconv.GetSample(iPeak);
 
         // For the current peak, find the upper and lower bounds of the
         // integration region.  If the peak is close to another, the bound is
