@@ -2,7 +2,7 @@
 #include "TPulseCalib.hxx"
 #include "TPulseDeconvolution.hxx"
 #include "TPMTMakeHits.hxx"
-#include "TWireMakeHits.hxx"
+#include "TWireSpectrum.hxx"
 
 #include <TPulseDigit.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -117,9 +117,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-    CP::TWireMakeHits makeWireHits(fApplyDriftCalibration,
+    CP::TWireSpectrum makeWireHits(fApplyDriftCalibration,
                                    fApplyEfficiencyCalibration);
-
+    
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse

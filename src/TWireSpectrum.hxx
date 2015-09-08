@@ -1,18 +1,18 @@
-#ifndef TWireMakeHits_hxx_seen
-#define TWireMakeHits_hxx_seen
+#ifndef TWireSpectrum_hxx_seen
+#define TWireSpectrum_hxx_seen
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
 
 namespace CP {
-    class TWireMakeHits;
+    class TWireSpectrum;
 };
 
 /// This takes a TCalibPulseDigit and turns it into one or more TDataHit
 /// object.  The hit will contain the time, and charge of the hit.  This has
 /// the option of applying the electron lifetime correction, or to just return
 /// the raw integrated charge.
-class CP::TWireMakeHits {
+class CP::TWireSpectrum {
 public:
 
     /// If the parameter is true, then the electron lifetime is corrected.
@@ -21,9 +21,9 @@ public:
     /// "calibration" mode and the drift correction is not applied.  If the
     /// second parameter is false, then this runs in calibration mode, and the
     /// collection efficiency is not applied.
-    explicit TWireMakeHits(bool correctDrift=true,
+    explicit TWireSpectrum(bool correctDrift=true,
                            bool correctEfficiency=true);
-    ~TWireMakeHits();
+    ~TWireSpectrum();
     
     /// Take a TCalibPulseDigit object with the calibrated charges, and the
     /// deconvolution of the calibrated charges, to find any hits in the
@@ -40,14 +40,6 @@ public:
                       double sampleSigma = 0.0);
 
 private:
-
-    /// Build a hit out of the digit samples between beginIndex and endIndex.
-    /// The digit step size is provided as an input.
-    CP::THandle<CP::THit> 
-    MakeHit(const CP::TCalibPulseDigit& digit, 
-            double digitStep, double t0,
-            double baselineSigma, double sampleSigma,
-            int beginIndex, int endIndex, bool split);
 
     /// Determine the bounds of the hit.
     std::pair<int, int> HitExtent(int peakIndex,
@@ -103,6 +95,9 @@ private:
     /// split into multiple hits.  Peaks wider than this are split up into
     /// multiple hits by drift time.
     double fPeakRMSLimit;
+
+    /// The maximum number of hits allowed per wire.
+    int fMaxPeaks;
 
     /// The number of samples to skip at the beginning and ending of the
     /// digit.  This is needed since the first and last run of samples are
