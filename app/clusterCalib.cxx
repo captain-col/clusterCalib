@@ -79,17 +79,20 @@ public:
     }
 
     bool operator () (CP::TEvent& event) {
-        if (!fClusterCalib) fClusterCalib = new CP::TClusterCalib();
-
-        // Set the action for the calibrated pulse digits.
-        fClusterCalib->SaveCalibratedPulses(fSavePulses);
-        fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
-        fClusterCalib->ApplyEfficiencyCalibration(fApplyEfficiencyCalibration);
+        if (!fClusterCalib) {
+            fClusterCalib = new CP::TClusterCalib();
+            // Set the action for the calibrated pulse digits.
+            fClusterCalib->SaveCalibratedPulses(fSavePulses);
+            fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
+            fClusterCalib->ApplyEfficiencyCalibration(
+                fApplyEfficiencyCalibration);
+        }
 
         // Possibly run a filter to reject noise events using uncalibrated
         // data.
         if (fActivityFilter) {
             bool result = (*fActivityFilter)(event);
+            CaptLog("Reject " << event.GetContext());
             if (!result) return false;
         }
         
