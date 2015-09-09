@@ -76,7 +76,7 @@ private:
     double fPeakMaximumCol;
     double fPeakMaximumInd;
 
-    /// The required area in the peak as estimated by TSpectrum.
+    /// The required total charge in the peak.
     double fPeakAreaCol;
     double fPeakAreaInd;
 

@@ -325,7 +325,7 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
                                                deconv,
                                                baselineSigma,
                                                sampleSigma);
-        for (int j=extent.first; j<extent.second; ++j) {
+        for (int j=extent.first; j<=extent.second; ++j) {
             fWork[j] = 1.0;
         }
         peaks.push_back(xx[i]);
@@ -394,7 +394,7 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
          p != peaks.end(); ++p) {
         int iPeak = (int) (*p + 0.5);
         int beginIndex = 0;
-        int endIndex = deconv.GetSampleCount();
+        int endIndex = deconv.GetSampleCount()-1;
 
         // For the current peak, find the upper and lower bounds of the
         // integration region.  If the peak is close to another, the bound is
@@ -430,7 +430,7 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
         double samples = 1.0;
 
         // Find the raw RMS for the peak.
-        for (int j=beginIndex; j<endIndex; ++j) {
+        for (int j=beginIndex; j<=endIndex; ++j) {
             double v = deconv.GetSample(j);
             if (v<0.1) v = 0.1;
             charge += v;
