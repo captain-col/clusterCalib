@@ -169,11 +169,24 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
         }
     }
 
+#define NORMALIZE_MAXIMUM
+#ifdef NORMALIZE_MAXIMUM
     /// Normalize the filter so that it has a maximum value of 1.0 (no
-    /// filtering).  This is because we don't know the real power of the
-    /// signal and noise and this helps maintain the overall normalization of
-    /// the charge in the peak.
+    /// filtering).
     double filterNorm = maxFilter;
+#else
+    /// Normalize the filter so that it doesn't change the power in a
+    /// delta-function convolved with the response.
+    double filterNorm = 0.0;
+    double responseNorm = 0.0;
+    for (std::size_t i = 0; i<fFilter.size(); ++i) {
+        double res = std::abs(elecFreq.GetFrequency(i));
+        double resFiltered = res*fFilter[i];
+        responseNorm += res;
+        filterNorm += resFiltered;
+    }
+    filterNorm = filterNorm/responseNorm;
+#endif
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
         fFilter[i] /= filterNorm;
     }
