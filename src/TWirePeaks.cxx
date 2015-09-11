@@ -334,18 +334,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
          ++i) {
         if (deconv.GetSample(i) < deconv.GetSample(i-1)) continue;
         if (deconv.GetSample(i) < deconv.GetSample(i+1)) continue;
-#ifdef SKIP_A_BUNCH
-        if (i > 2*3450) continue;
-        if (i < 2*3400) continue;
-        if (CP::GeomId::Captain::IsVWire(id)) {
-            if (CP::GeomId::Captain::GetWireNumber(id) < 105) continue;
-            if (CP::GeomId::Captain::GetWireNumber(id) > 135) continue;
-        }
-        if (CP::GeomId::Captain::IsUWire(id)) {
-            if (CP::GeomId::Captain::GetWireNumber(id) < 170) continue;
-            if (CP::GeomId::Captain::GetWireNumber(id) > 190) continue;
-        }
-#endif
         if (deconv.GetSample(i) < peakMaximumCut) continue;
         peakCandidates.push_back(std::make_pair(deconv.GetSample(i), i));
     }

@@ -5,7 +5,10 @@
 #include "TChannelCalib.hxx"
 
 #include <TChannelId.hxx>
+#include <TGeometryId.hxx>
 #include <TCaptLog.hxx>
+#include <TChannelInfo.hxx>
+#include <CaptGeomId.hxx>
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>
@@ -130,19 +133,6 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
                       + signalNoise*signalNoise);
     noise *= fNoisePower;
 
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-    TH1F* sigHist
-        = new TH1F((id.AsString()+"-signal").c_str(),
-                   ("Signal Estimate for "
-                    + id.AsString()).c_str(),
-                   fFilter.size(),
-                   0,1.0);
-    for (std::size_t i = 0; i<fFilter.size(); ++i) {
-        sigHist->SetBinContent(i+1,fAverage[i]);
-   }
-#endif
-
     /// The form of filter being used below is based on an optimal filter
     /// (e.g. a Weiner Filter) where the filter value is F = S^2/(S^2 + N^2)
     /// (S being the true signal, and N being the true noise).  F will be
@@ -169,7 +159,6 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
         }
     }
 
-#define NORMALIZE_MAXIMUM
 #ifdef NORMALIZE_MAXIMUM
     /// Normalize the filter so that it has a maximum value of 1.0 (no
     /// filtering).
@@ -190,5 +179,60 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
         fFilter[i] /= filterNorm;
     }
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    std::ostringstream histName;
+    CP::TGeometryId gid
+        = CP::TChannelInfo::Get().GetGeometry(id);
+    histName << "A-"
+             << std::setw(3) << std::setfill('0')
+             << CP::TChannelInfo::Get().GetMotherboard(id)
+             << "-" << std::setw(3) << std::setfill('0')
+             << CP::TChannelInfo::Get().GetASIC(id)
+             << "-" << std::setw(3) << std::setfill('0')
+             << CP::TChannelInfo::Get().GetASICChannel(id);
+    // if (CP::GeomId::Captain::IsUWire(gid)) histName << "wire-u";
+    // if (CP::GeomId::Captain::IsVWire(gid)) histName << "wire-v";
+    // if (CP::GeomId::Captain::IsXWire(gid)) histName << "wire-x";
+    // histName << "-" << std::setw(3) << std::setfill('0')
+    //         << CP::GeomId::Captain::GetWireNumber(gid);
+
+    std::ostringstream histTitle;
+    if (CP::GeomId::Captain::IsUWire(gid)) histTitle << "Wire U";
+    if (CP::GeomId::Captain::IsVWire(gid)) histTitle << "Wire V";
+    if (CP::GeomId::Captain::IsXWire(gid)) histTitle << "Wire X";
+    histTitle << "-" << CP::GeomId::Captain::GetWireNumber(gid)
+              << " (" << id.AsString() << ")";
+    if (fSpikePower > 0.01) {
+        TH1F* sigHist
+            = new TH1F((histName.str()+"-signal").c_str(),
+                       ("Signal Estimate for "
+                        + histTitle.str()).c_str(),
+                       fFilter.size(),
+                       0,1.0);
+        for (std::size_t i = 0; i<fFilter.size(); ++i) {
+            sigHist->SetBinContent(i+1,fAverage[i]/fSpikePower);
+        }
+        TH1F* powHist
+            = new TH1F((histName.str()+"-power").c_str(),
+                       ("Power Estimate for "
+                        + histTitle.str()).c_str(),
+                       fFilter.size(),
+                       0,1.0);
+        for (std::size_t i = 0; i<fFilter.size(); ++i) {
+            powHist->SetBinContent(i+1,fWork[i]);
+        }
+        TH1F* filHist
+            = new TH1F((histName.str()+"-filter").c_str(),
+                       ("Filter Estimate for "
+                        + histTitle.str()).c_str(),
+                       fFilter.size(),
+                       0,1.0);
+        for (std::size_t i = 0; i<fFilter.size(); ++i) {
+            filHist->SetBinContent(i+1,fFilter[i]);
+        }
+    }
+#endif
 
 }
