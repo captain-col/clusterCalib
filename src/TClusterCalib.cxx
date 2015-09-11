@@ -3,6 +3,7 @@
 #include "TPulseDeconvolution.hxx"
 #include "TPMTMakeHits.hxx"
 #include "TWireSpectrum.hxx"
+#include "TWirePeaks.hxx"
 
 #include <TPulseDigit.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -117,9 +118,13 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 
     std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
+#ifdef USE_WIRE_SPECTRUM
     CP::TWireSpectrum makeWireHits(fApplyDriftCalibration,
                                    fApplyEfficiencyCalibration);
-    
+#else
+    CP::TWirePeaks makeWireHits(fApplyDriftCalibration,
+                                fApplyEfficiencyCalibration);
+#endif
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse
@@ -372,21 +377,22 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     static TH1F* gClusterCalibXCharge = NULL;
     static TH1F* gClusterCalibVCharge = NULL;
     static TH1F* gClusterCalibUCharge = NULL;
-    double maxCharge = 50*unit::fC;
+    double minCharge = std::log10(4000);
+    double maxCharge = std::log10(50*unit::fC);
     if (!gClusterCalibXCharge) {
         gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
                                         "Calibrated Charge for the X wires",
-                                        100, 0.0, maxCharge);
+                                        100, minCharge, maxCharge);
     }
     if (!gClusterCalibUCharge) {
         gClusterCalibUCharge = new TH1F("clusterCalibUCharge",
                                         "Calibrated Charge for the U wires",
-                                        100, 0.0, maxCharge);
+                                        100, minCharge, maxCharge);
     }
     if (!gClusterCalibVCharge) {
         gClusterCalibVCharge = new TH1F("clusterCalibVCharge",
                                         "Calibrated Charge for the V wires",
-                                        100, 0.0, maxCharge);
+                                        100, minCharge, maxCharge);
     }
 
     for (CP::THitSelection::iterator h = driftHits->begin();
@@ -399,7 +405,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         case 2: hist = gClusterCalibUCharge; break;
         default: std::exit(1);
         }
-        hist->Fill((*h)->GetCharge());
+        double q = std::log10((*h)->GetCharge());
+        q = std::min(std::max(minCharge, q), maxCharge);
+        hist->Fill(q);
     }
 #endif
 
