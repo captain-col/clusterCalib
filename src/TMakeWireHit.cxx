@@ -77,6 +77,36 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // Find the sample RMS, and then convert into a time RMS.
     double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
 
+#define FWHM_OVERRIDE
+#ifdef FWHM_OVERRIDE
+    {
+        // Estimate the RMS using the FWHM.
+        std::vector<double>::iterator maxBin = sampleCharge.end();
+        for (std::vector<double>::iterator s = sampleCharge.begin();
+             s != sampleCharge.end(); ++s) {
+            if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
+        }
+        if (maxBin != sampleCharge.end()) {
+            std::vector<double>::iterator lowBin = maxBin;
+            while (lowBin != sampleCharge.begin()) {
+                --lowBin;
+                if (*lowBin < 0.5*(*maxBin)) break;
+            }
+            std::vector<double>::iterator hiBin = maxBin;
+            while (hiBin != sampleCharge.end()) {
+                if (*hiBin < 0.5*(*maxBin)) break;
+                if (hiBin+1 == sampleCharge.end()) break;
+                ++hiBin;
+            }
+            double lowVal=(0.5*(*maxBin)-(*lowBin))/(*(lowBin+1)-(*lowBin));
+            double hiVal = (0.5*(*maxBin)-(*hiBin))/(*(hiBin-1)-(*hiBin));
+            int diff = hiBin-lowBin;
+            // Convert FWHM into an RMS.
+            rms = 1.0*(diff - lowVal - hiVal)/2.36;
+        }
+    }
+#endif
+    
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.
     double timeUnc = rms/std::sqrt(samples);
