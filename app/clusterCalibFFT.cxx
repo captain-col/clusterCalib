@@ -27,6 +27,7 @@ public:
         fNoiseHist = NULL;
         fGaussHist = NULL;
         fExtremaHist = NULL;
+	fCountPeaksHist = NULL;
         fChanFFTHist = NULL;
         fWireFFTHist = NULL;
         fASICFFTHist = NULL;
@@ -77,6 +78,10 @@ public:
         fExtremaHist->Draw();
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-extremaHist.png").c_str());
+
+        fCountPeaksHist->Draw();
+        gPad->Print((fPrintFile+".pdf").c_str());
+        gPad->Print((fPrintFile+"-countPeaksHist.png").c_str());
 
         fPeakChanHist->SetMinimum(fNoiseHist->GetMean());
         gPad->SetLogy(true);
@@ -180,6 +185,16 @@ public:
             fExtremaHist->SetXTitle("ADC");
         }
         
+        if (!fCountPeaksHist) {
+            fCountPeaksHist = new TH1F("fCountPeaksHist",
+                                    (titlePrefix.str() +
+                                     "No. power spectra great than 0.5").c_str(),
+                                    maxASIC, 1, maxASIC+1);
+            fCountPeaksHist->SetXTitle("wire number");
+            fCountPeaksHist->SetYTitle("wire number");
+	    fCountPeaksHist->SetStats(false);
+        }
+
         if (!fCorrChanHist) {
             fCorrChanHist = new TH2F("corrChanHist",
                                      (titlePrefix.str() +
@@ -435,6 +450,8 @@ public:
             fftHist->SetYTitle("FFT Power (#frac{ADC^{2}}{#Delta#it{f}})");
             fftHist->SetXTitle("Frequency (Hz)");
 
+	    std::vector<int> peakVector(drift->size());
+	    int peakCounter = 0;
             std::vector<double> power(nSize/2);
             double amp = 0.0;
             for (std::size_t i = 1; i<(std::size_t) nSize/2; ++i) {
@@ -445,9 +462,17 @@ public:
                 amp += p;
                 power[i] = p;
                 fftHist->SetBinContent(i, p);
-                if (p>0.01/nSize) powerRange.push_back(p);
+		
+		//add counter of peaks
+		if (p > 0.5) peakCounter++;
+		peakVector.push_back(peakCounter);
+
+                //Fill the powerRange vector, which will be sorted, and then its values used for the scale of the 2D histos
+		if (p>0.01/nSize) powerRange.push_back(p);
                 else p = 0.01/nSize;
-                double m = fChanFFTHist->GetBinContent(d+1,i);
+                
+		// Fill 2D histograms
+		double m = fChanFFTHist->GetBinContent(d+1,i);
                 if (p > m || m == 0.0) {
                     fChanFFTHist->SetBinContent(d+1,i,p);
                 }
@@ -460,6 +485,15 @@ public:
                     fASICFFTHist->SetBinContent(asic,i,p);
                 }
             }
+
+
+	    for (unsigned it = 0; it < peakVector.size(); ++it) {
+		    if (wire < 0) {
+			    fCountPeaksHist->SetBinContent(noWire+0.1, peakVector.at(it));
+		    } else {
+			    fCountPeaksHist->SetBinContent(wire+0.1,peakVector.at(it));
+		    }
+	    }
 
             fNoiseHist->Fill(std::sqrt(amp));
             std::sort(power.begin(), power.end());
@@ -573,6 +607,10 @@ private:
 
     /// A histogram of the extrema value fluctuations.
     TH1F* fExtremaHist;
+
+    /// A histogram of the number of peaks above a certain power spectra value
+    /// Hardcoded as above 0.5 for now
+    TH1F* fCountPeaksHist;
 
     /// The FFT for all wires in an event.
     TH2F* fChanFFTHist;
