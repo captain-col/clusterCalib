@@ -336,7 +336,9 @@ public:
                                 + "FFT Power for all wires"
                                 + " (unattached after attached)").c_str(),
                                maxASIC, 1.0, maxASIC+1,
-                               (nSize/2-1)/20, deltaFreq, nyquistFreq);
+                               //(nSize/2-1)/20, deltaFreq, nyquistFreq);
+			       //change binning 
+                               (nSize/2-1), deltaFreq, nyquistFreq);
                 fWireFFTHist->SetXTitle("Wire");
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
                 fWireFFTHist->SetStats(false);
