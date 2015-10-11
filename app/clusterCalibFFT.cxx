@@ -191,8 +191,8 @@ public:
                                      "No. power spectra great than 0.5").c_str(),
                                     maxASIC, 1, maxASIC+1);
             fCountPeaksHist->SetXTitle("wire number");
-            fCountPeaksHist->SetYTitle("wire number");
-	    fCountPeaksHist->SetStats(false);
+            fCountPeaksHist->SetYTitle("no. events");
+	    //fCountPeaksHist->SetStats(false);
         }
 
         if (!fCorrChanHist) {
@@ -450,7 +450,6 @@ public:
             fftHist->SetYTitle("FFT Power (#frac{ADC^{2}}{#Delta#it{f}})");
             fftHist->SetXTitle("Frequency (Hz)");
 
-	    std::vector<int> peakVector(drift->size());
 	    int peakCounter = 0;
             std::vector<double> power(nSize/2);
             double amp = 0.0;
@@ -465,7 +464,6 @@ public:
 		
 		//add counter of peaks
 		if (p > 0.5) peakCounter++;
-		peakVector.push_back(peakCounter);
 
                 //Fill the powerRange vector, which will be sorted, and then its values used for the scale of the 2D histos
 		if (p>0.01/nSize) powerRange.push_back(p);
@@ -486,13 +484,10 @@ public:
                 }
             }
 
-
-	    for (unsigned it = 0; it < peakVector.size(); ++it) {
-		    if (wire < 0) {
-			    fCountPeaksHist->SetBinContent(noWire+0.1, peakVector.at(it));
-		    } else {
-			    fCountPeaksHist->SetBinContent(wire+0.1,peakVector.at(it));
-		    }
+	    if (wire < 0) {
+		    fCountPeaksHist->SetBinContent(noWire+0.1, peakCounter);
+	    } else {
+		    fCountPeaksHist->SetBinContent(wire+0.1,peakCounter);
 	    }
 
             fNoiseHist->Fill(std::sqrt(amp));
