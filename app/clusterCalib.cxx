@@ -19,13 +19,15 @@ public:
     virtual ~TClusterCalibLoop() {};
 
     void Usage(void) {
-        std::cout << "   -O filter[=c:S:s] Apply a simple event activity filter"
+        std::cout << "   -O filter[=c:S:s:C] Apply a simple event activity filter"
                   << std::endl
                   << "        c: Number of required channels"
                   << std::endl
                   << "        S: Required ADC above baseline"
                   << std::endl
                   << "        s: Required significance above baseline"
+                  << std::endl
+                  << "        C: Required maximum channels"
                   << std::endl;
         std::cout << "   -O pulse      "
                   << "Save the calibrated (after deconvolution) pulses"
@@ -72,6 +74,11 @@ public:
                 if (colon != ':') return false;
                 vStr >> v;
                 if (v>0) fActivityFilter->SetRequiredSignificance(v);
+                vStr >> colon;
+                if (colon != ':') return false;
+                int chan2;
+                vStr >> chan2;
+                if (chan2>0) fActivityFilter->SetMaximumRequiredChannels(chan2);
             }
         }
         else return false;
