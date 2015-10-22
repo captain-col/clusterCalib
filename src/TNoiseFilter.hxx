@@ -8,6 +8,7 @@
 #include <HEPUnits.hxx>
 
 #include <TVirtualFFT.h>
+#include <RVersion.h>
 
 namespace CP {
     class TNoiseFilter;
@@ -53,7 +54,11 @@ private:
     std::vector<double> fWork;
     
     /// A work area.
+#if ROOT_VERSION(6,0,0) < ROOT_VERSION_CODE
+    std::vector<double> fAverage;
+#else
     std::vector<float> fAverage;
+#endif
     
     /// The power of the gaussian noise.
     double fNoisePower;

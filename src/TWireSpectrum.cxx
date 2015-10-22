@@ -118,9 +118,9 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
         if (fDest) delete[] fDest;
         if (fWork) delete[] fWork;
         fNSource = 2*deconv.GetSampleCount();
-        fSource = new float[fNSource];
-        fDest = new float[fNSource];
-        fWork = new float[fNSource];
+        fSource = new EntryType[fNSource];
+        fDest = new EntryType[fNSource];
+        fWork = new EntryType[fNSource];
     }
 
     CP::TChannelCalib channelCalib;
@@ -255,8 +255,8 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
 #endif
 
     // Get the peak positions, and determine which ones are above threshold.
-    float* xx = spectrum->GetPositionX();
-    std::vector<float> peaks;
+    EntryType* xx = spectrum->GetPositionX();
+    std::vector<EntryType> peaks;
 
 #define STANDARD_HISTOGRAM
 #ifdef STANDARD_HISTOGRAM
@@ -390,7 +390,7 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
     // found, then the digit is split at the halfway point between the peaks.
     // If the peak is too wide, then the peak is split.
     int hitCount = 0;
-    for (std::vector<float>::iterator p = peaks.begin();
+    for (std::vector<EntryType>::iterator p = peaks.begin();
          p != peaks.end(); ++p) {
         int iPeak = (int) (*p + 0.5);
         int beginIndex = 0;
@@ -401,7 +401,7 @@ double CP::TWireSpectrum::operator() (CP::THitSelection& hits,
         // halfway between the two peaks.  After this is finished, the
         // "beginIndex" and "endIndex" will be the indices to be looking at.
         if (peaks.size() > 1) {
-            for (std::vector<float>::iterator o = peaks.begin();
+            for (std::vector<EntryType>::iterator o = peaks.begin();
                  o != peaks.end(); ++o) {
                 if (o == p) continue;
                 if (*o < *p) {

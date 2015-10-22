@@ -4,6 +4,8 @@
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
 
+#include <RVersion.h>
+
 namespace CP {
     class TWireSpectrum;
 };
@@ -15,6 +17,12 @@ namespace CP {
 class CP::TWireSpectrum {
 public:
 
+#if ROOT_VERSION(6,0,0) < ROOT_VERSION_CODE
+    typedef double EntryType;
+#else
+    typedef EntryType float;
+#endif
+    
     /// If the parameter is true, then the electron lifetime is corrected.
     /// This is the normal setting and equalizes the response across the
     /// detector.  If the first parameter is false, then this runs in
@@ -62,14 +70,14 @@ private:
     int fNSource;
 
     /// A buffer for the spectrum.
-    float* fSource;
+    EntryType* fSource;
 
     /// A buffer for the found peaks.
-    float* fDest;
+    EntryType* fDest;
 
     /// A buffer for local work.
-    float* fWork;
-
+    EntryType* fWork;
+    
     /// The required charge in the sample at the peak required for it to be
     /// considered valid.  This is pedestal subtracted and after the response
     /// function has been deconvoluted.
