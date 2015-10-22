@@ -20,6 +20,9 @@ CP::TActivityFilter::TActivityFilter() {
     fMinimumSignal 
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.filter.minimumSignal");
+    fMaximumRequiredChannels
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.filter.maximumRequiredChannels");
 }
 
 CP::TActivityFilter::~TActivityFilter() {}
@@ -125,7 +128,7 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         }
     }
 
-    if (significantChannels >= fRequiredChannels) {
+    if ((significantChannels >= fRequiredChannels) && (significantChannels <= fMaximumRequiredChannels)) {
         CaptLog("Save event: " << event.GetContext());
         return true;
     }

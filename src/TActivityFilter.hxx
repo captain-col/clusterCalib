@@ -49,6 +49,14 @@ public:
         fRequiredChannels = i;
     }
     
+    /// Set the maximum number of active channels allowed in an event
+    void SetMaximumRequiredChannels(int i) {
+        std::cout << "TActivityFilter:: Set maximum required channels: "
+                  << i
+                  << std::endl;
+        fMaximumRequiredChannels = i;
+    }
+
 private:
 
     /// The minimum number of ADC counts above the baseline for a channel to be
@@ -62,6 +70,9 @@ private:
     /// The number of channels that must be active in the detector for the
     /// event to be considered to have activity.
     int fRequiredChannels;
+
+    /// The maximum number of channels that are allowed to register activity
+    int fMaximumRequiredChannels;
     
 };
 #endif

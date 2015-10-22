@@ -113,5 +113,6 @@ threshold in ADC counts to be considered active.
 < clusterCalib.filter.requiredChannels = 6 >
 < clusterCalib.filter.requiredSignificance = 7.0 >
 < clusterCalib.filter.minimumSignal = 30 >
+< clusterCalib.filter.maximumRequiredChannels = 500 >
 
 
