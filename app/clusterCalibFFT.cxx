@@ -186,9 +186,9 @@ public:
         }
         
         if (!fCountPeaksHist) {
-            fCountPeaksHist = new TH1F("fCountPeaksHist",
+            fCountPeaksHist = new TH1F("countPeaksHist",
                                     (titlePrefix.str() +
-                                     "No. power spectra great than 0.5").c_str(),
+                                     "FFT samples great than 0.5").c_str(),
                                     maxASIC, 1, maxASIC+1);
             fCountPeaksHist->SetXTitle("wire number");
             fCountPeaksHist->SetYTitle("no. events");
@@ -337,8 +337,9 @@ public:
                 fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
                 fSampleCount = nSize;
                 fChanFFTHist = new TH2F("chanFFTHist",
-                                        (titlePrefix.str() +
-                                         "Max FFT power in window for all channels").c_str(),
+                                        (titlePrefix.str() 
+                                         + "Max FFT power in window"
+                                         + " for channels").c_str(),
                                         drift->size(), 0.0, drift->size(),
                                         (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fChanFFTHist->SetXTitle("Channel");
@@ -348,7 +349,8 @@ public:
                 fWireFFTHist
                     = new TH2F("wireFFTHist",
                                (titlePrefix.str() 
-                                + "Max FFT power in window for all wires"
+                                + "Max FFT power in window"
+                                + " for wires"
                                 + " (unattached after attached)").c_str(),
                                maxASIC, 1.0, maxASIC+1,
                                (nSize/2-1)/20, deltaFreq, nyquistFreq);
@@ -356,8 +358,9 @@ public:
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
                 fWireFFTHist->SetStats(false);
                 fASICFFTHist = new TH2F("asicFFTHist",
-                                        (titlePrefix.str() +
-                                         "Max FFT power in window for all asics").c_str(),
+                                        (titlePrefix.str()
+                                         + "Max FFT power in window"
+                                         + " for asics").c_str(),
                                         maxASIC, 0.0, maxASIC,
                                         (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fASICFFTHist->SetXTitle("ASIC");
@@ -429,12 +432,20 @@ public:
             fFFT->Transform();
 
             std::ostringstream histBaseName;
-            if (wire>0) histBaseName << "W:"
-                                     << std::setw(4) 
-                                     << std::setfill('0') << wire<<"-";
-            std::string chanName = pulse->GetChannelId().AsString().substr(4);
+            if (wire>0) {
+                histBaseName << "W:"
+                             << std::setw(4) 
+                             << std::setfill('0') << wire<<"-";
+            }
+            std::string chanName;
+            if (!pulse->GetChannelId().IsMCChannel()) {
+                chanName = pulse->GetChannelId().AsString().substr(4);
+            }
+            else {
+                chanName = pulse->GetChannelId().AsString();
+            }            
             histBaseName << chanName;
-            
+
             std::ostringstream histBaseTitle;
             if (wire>0) histBaseTitle << "wire " << wire << " ";
             histBaseTitle << chanName;
