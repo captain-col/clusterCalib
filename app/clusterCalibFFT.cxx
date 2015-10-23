@@ -338,7 +338,7 @@ public:
                 fSampleCount = nSize;
                 fChanFFTHist = new TH2F("chanFFTHist",
                                         (titlePrefix.str() +
-                                         "FFT Power for all channels").c_str(),
+                                         "Max FFT power in window for all channels").c_str(),
                                         drift->size(), 0.0, drift->size(),
                                         (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fChanFFTHist->SetXTitle("Channel");
@@ -348,18 +348,16 @@ public:
                 fWireFFTHist
                     = new TH2F("wireFFTHist",
                                (titlePrefix.str() 
-                                + "FFT Power for all wires"
+                                + "Max FFT power in window for all wires"
                                 + " (unattached after attached)").c_str(),
                                maxASIC, 1.0, maxASIC+1,
-                               //(nSize/2-1)/20, deltaFreq, nyquistFreq);
-			       //change binning 
-                               (nSize/2-1), deltaFreq, nyquistFreq);
+                               (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fWireFFTHist->SetXTitle("Wire");
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
                 fWireFFTHist->SetStats(false);
                 fASICFFTHist = new TH2F("asicFFTHist",
                                         (titlePrefix.str() +
-                                         "FFT Power for all asics").c_str(),
+                                         "Max FFT power in window for all asics").c_str(),
                                         maxASIC, 0.0, maxASIC,
                                         (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fASICFFTHist->SetXTitle("ASIC");
@@ -462,25 +460,29 @@ public:
                 power[i] = p;
                 fftHist->SetBinContent(i, p);
 		
-		//add counter of peaks
+		// Count the number of peaks in the power spectrum.
 		if (p > 0.5) peakCounter++;
 
-                //Fill the powerRange vector, which will be sorted, and then its values used for the scale of the 2D histos
+                // Fill the powerRange vector, which will be sorted, and then
+                // its values used for the scale of the 2D histos
 		if (p>0.01/nSize) powerRange.push_back(p);
                 else p = 0.01/nSize;
                 
-		// Fill 2D histograms
-		double m = fChanFFTHist->GetBinContent(d+1,i);
+		// Fill 2D histograms.  Be careful with the "Y" binning
+                int b = 1+2*fChanFFTHist->GetNbinsY()*i/nSize;
+		double m = fChanFFTHist->GetBinContent(d+1,b);
                 if (p > m || m == 0.0) {
-                    fChanFFTHist->SetBinContent(d+1,i,p);
+                    fChanFFTHist->SetBinContent(d+1,b,p);
                 }
-                m = fWireFFTHist->GetBinContent((wire<0)?noWire:wire,i);
+                b = 1+2*fWireFFTHist->GetNbinsY()*i/nSize;
+                m = fWireFFTHist->GetBinContent((wire<0)?noWire:wire,b);
                 if (p > m || m == 0.0) {
-                    fWireFFTHist->SetBinContent((wire<0)?noWire:wire,i,p);
+                    fWireFFTHist->SetBinContent((wire<0)?noWire:wire,b,p);
                 }
-                m = fASICFFTHist->GetBinContent(asic,i);
+                b = 1+2*fASICFFTHist->GetNbinsY()*i/nSize;
+                m = fASICFFTHist->GetBinContent(asic,b);
                 if (p > m || m == 0.0) {
-                    fASICFFTHist->SetBinContent(asic,i,p);
+                    fASICFFTHist->SetBinContent(asic,b,p);
                 }
             }
 
