@@ -12,7 +12,6 @@
 #include <TRuntimeParameters.hxx>
 #include <CaptGeomId.hxx>
 
-#include <TSpectrum.h>
 #include <TH1F.h>
 #include <TH2F.h>
 
@@ -352,8 +351,9 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         if (fWork[candidateIndex] > 0.5) {
             continue;
         }
-        // Apply a cut based on the noise in the peak search.
-        // if (candidateHeight < noise*fNoiseThresholdCut) continue;
+        // Cut peaks that are smaller than NoiseThresholdCut times the RMS of
+        // the channel.
+        if (candidateHeight < noise*fNoiseThresholdCut) continue;
         // Find the extent of the peak.
         std::pair<int, int> extent = PeakExtent(candidateIndex,
                                                 deconv,
