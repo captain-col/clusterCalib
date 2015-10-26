@@ -16,6 +16,7 @@
 #include <memory>
 #include <complex>
 #include <sstream>
+#include <algorithm>
 
 namespace CP {class TRootOutput;};
 
@@ -26,6 +27,7 @@ public:
         fFFT = NULL;
         fNoiseHist = NULL;
         fGaussHist = NULL;
+        fPowerHist = NULL;
         fExtremaHist = NULL;
 	fCountPeaksHist = NULL;
         fChanFFTHist = NULL;
@@ -71,7 +73,7 @@ public:
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-noiseHist.png").c_str());
 
-        fGaussHist->Draw();
+        fPowerHist->Draw();
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-gaussHist.png").c_str());
 
@@ -172,9 +174,19 @@ public:
         if (!fGaussHist) {
             fGaussHist = new TH1F("gaussHist",
                                   (titlePrefix.str() +
-                                   "68% fluctuation of ADC values").c_str(),
+                                   "Estimate of ADC Gaussian noise"
+                                   + " from differences").c_str(),
                                   100.0, 0, 50.0);
             fGaussHist->SetXTitle("ADC");
+        }
+
+        if (!fPowerHist) {
+            fPowerHist = new TH1F("powerHist",
+                                  (titlePrefix.str() +
+                                   "Estimate of ADC Gaussian noise"
+                                   + " from power spectrum").c_str(),
+                                  100.0, 0, 50.0);
+            fPowerHist->SetXTitle("ADC");
         }
 
         if (!fExtremaHist) {
@@ -307,6 +319,7 @@ public:
         
         std::vector<double> pedestals(drift->size());
         std::vector<double> sigmas(drift->size());
+        std::vector<double> differences;
         
         std::vector<float> powerRange;
 
@@ -326,6 +339,10 @@ public:
             int wire = chanInfo.GetWireNumber(pulse->GetChannelId());
             if (wire<0) ++noWire;
 
+            if (differences.size() != pulse->GetSampleCount()) {
+                differences.resize(pulse->GetSampleCount());
+            }
+            
             int asic = chanInfo.GetMotherboard(pulse->GetChannelId())-1;
             asic = 12*asic+chanInfo.GetASIC(pulse->GetChannelId())-1;
             asic = 16*asic+chanInfo.GetASICChannel(pulse->GetChannelId())-1;
@@ -378,6 +395,29 @@ public:
             }
             pedestal /= pulse->GetSampleCount();
             pedestals[d] = pedestal;
+
+            // Calculate the channel-to-channel Gaussian sigma.  The 52
+            // percentile is a of the sample-to-sample differences is a good
+            // estimate of the distribution sigma.  The 52% "magic" number
+            // comes looking at the differences of two samples (that gives a
+            // sqrt(2)) and wanting the RMS (which is the 68%).  This gives
+            // 48% (which is 68%/sqrt(2)).  Then because of the ordering after
+            // the sort, the bin we look at is 1.0-52%.
+            for (std::size_t i=1; i< pulse->GetSampleCount(); ++i) {
+                differences[i]
+                    = std::abs(pulse->GetSample(i)-pulse->GetSample(i-1));
+            }
+            differences[0] = 0.0;
+            std::sort(differences.begin(), differences.end());
+            int median = 0.52*pulse->GetSampleCount();
+            std::pair<std::vector<double>::iterator,
+                      std::vector<double>::iterator> bounds;
+            bounds = std::equal_range(differences.begin(), differences.end(),
+                                      differences[median]);
+            double gaussNoise = (differences.begin()+median)-bounds.first;
+            gaussNoise /= bounds.second-bounds.first;
+            gaussNoise += std::min(differences[median]-0.5,0.0);
+            fGaussHist->Fill(gaussNoise);
             
             // Find the minima and maxima and use them to tabulate the peak
             // heights.
@@ -507,7 +547,7 @@ public:
             std::sort(power.begin(), power.end());
             int index = 0.68*power.size();
             amp = power[index]*nSize;
-            fGaussHist->Fill(std::sqrt(amp));
+            fPowerHist->Fill(std::sqrt(amp));
         }
 
         std::sort(powerRange.begin(), powerRange.end());
@@ -612,6 +652,9 @@ private:
 
     /// A histogram of the noise on each wire assuming it's Gaussian
     TH1F* fGaussHist;
+
+    /// A histogram of the noise on each wire assuming it's Gaussian
+    TH1F* fPowerHist;
 
     /// A histogram of the extrema value fluctuations.
     TH1F* fExtremaHist;
