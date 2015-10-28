@@ -14,28 +14,31 @@ There is a trade off since smaller values will run slightly faster.
 < clusterCalib.digitization.response = 20000 ns >
 
 After the wire channels are calibrated, the output FADC signals are
-analyzed for peaks using TSpectrum::SearchHighRes() using a very loose
-acceptance criteria.  Peaks found by the search are then examined to see if
+analyzed for peaks.  Peaks found by the search are then examined to see if
 they are consistent with a real peak.  These parameters control the peak
-acceptance.  The charge is the charge value at the peak.  The deconvolution
-is the estimated power from the SearchHighRes() output.  The noise is the
-number of RMS sigma above the random noise before peak is taken as signal.
+acceptance.  The charge is the charge value of the maximum sample in the
+peak.  The area is the total estimated area of the peak.  The noise is the
+number of RMS sigma above the random noise before peak sample is taken as
+signal.
 
-The charge value in the calibrated charge histogram after the response
-function has been deconvolved.  The units are in collected electrons
+The minimum peak charge value of a peak candidate.  The units are in
+collected electrons
 
-< clusterCalib.peakSearch.charge.collection = 500 electrons >
-< clusterCalib.peakSearch.charge.induction = 500 electrons >
+< clusterCalib.peakSearch.charge.collection = 2000 electrons >
+< clusterCalib.peakSearch.charge.induction = 2000 electrons >
 
-The area as estimated by TSpectrum.  The units are in collected electrons.
+The minimum area of a peak candidate.  The expectation is that a MIP will
+create approximately 6000 thermal electrons per mm.  The units are in
+collected electrons.
 
 < clusterCalib.peakSearch.area.collection = 6000 electrons >
 < clusterCalib.peakSearch.area.induction = 6000 electrons >
 
-The FWHM of the narrowest real peak.
+The FWHM of the narrowest real peak.  Peaks candidates that are narrower
+than this are rejected.
 
-< clusterCalib.peakSearch.width.collection = 1.5 us >
-< clusterCalib.peakSearch.width.induction = 1.5 us >
+< clusterCalib.peakSearch.width.collection = 0.5 us >
+< clusterCalib.peakSearch.width.induction = 0.5 us >
 
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
