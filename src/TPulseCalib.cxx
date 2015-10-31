@@ -48,9 +48,10 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
               CP::TCalibPulseDigit::Vector::iterator> bounds;
     bounds = std::equal_range(samples.begin(), samples.end(),
                               samples[iMedian]);
-    fPedestal = (samples.begin()+iMedian)-bounds.first;
-    fPedestal /= bounds.second-bounds.first;
-    fPedestal += std::min(samples[iMedian]-0.5,0.0);
+    fPedestal = 1.0*((samples.begin()+iMedian)-bounds.first);
+    fPedestal /= 1.0*(bounds.second-bounds.first);
+    fPedestal += samples[iMedian];
+    fPedestal -= 0.5;
 
     // Calculate the RMS around the average with the tails thrown out.
     fAverage = 0.0;

@@ -25,7 +25,7 @@ public:
     CP::TCalibPulseDigit* operator()(const CP::TDigitProxy& digit);
 
     /// Get the last pedestal value.
-    int GetPedestal() {return fPedestal;}
+    double GetPedestal() {return fPedestal;}
 
     /// Get the most recent average value.
     double GetAverage() {return fAverage;}
@@ -39,7 +39,7 @@ public:
 private:
 
     /// The most recent pedestal value
-    int fPedestal;
+    double fPedestal;
 
     /// The most recent average channel value
     double fAverage;
