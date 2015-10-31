@@ -416,8 +416,8 @@ public:
                                       differences[median]);
             double gaussNoise = (differences.begin()+median)-bounds.first;
             gaussNoise /= bounds.second-bounds.first;
-            gaussNoise += std::min(differences[median]-0.5,0.0);
-            fGaussHist->Fill(gaussNoise);
+            gaussNoise += differences[median]-0.5;
+            fGaussHist->Fill(std::max(gaussNoise,0.0));
             
             // Find the minima and maxima and use them to tabulate the peak
             // heights.
