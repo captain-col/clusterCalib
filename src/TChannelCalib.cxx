@@ -204,14 +204,19 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
             = ev->Get<CP::TRealDatum>("~/truth/elecSimple/digitStep");
         double digitStep = (*stepVect)[index];
 
+        // Get the trigger offset.
+        CP::THandle<CP::TRealDatum> offsetVect
+            = ev->Get<CP::TRealDatum>("~/truth/elecSimple/triggerOffset");
+        double triggerOffset = (*offsetVect)[index];
+
         if (order == 0) {
             // The offset for the digitization time for each type of MC channel.
             // This was determined "empirically", and depends on the details of
             // the simulation.  It should be in the parameter file.  The exact
             // value depends on the details of the time clustering.
-            double timeOffset = 0.0;
-            if (index == 1) timeOffset = -digitStep + 23*unit::ns;
-            else if (index == 2) timeOffset = -digitStep + 52*unit::ns;
+            double timeOffset = -triggerOffset;
+            if (index == 1) timeOffset += -digitStep + 23*unit::ns;
+            else if (index == 2) timeOffset += -digitStep + 52*unit::ns;
             return timeOffset;
         }
         else if (order == 1) {
@@ -222,6 +227,7 @@ double CP::TChannelCalib::GetTimeConstant(CP::TChannelId id, int order) {
     }
 
 #ifdef SKIP_DATA_CALIBRATION
+    if (order == 0) return -1.600*unit::ms;
     if (order == 1) return 500.0*unit::ns;
     return 0.0;
 #endif
