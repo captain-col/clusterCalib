@@ -112,7 +112,7 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         }
         if (v < shoulderThreshold) passedShoulder = true;
         if (v < fIntegrationChargeThreshold*peak) break;
-        if (passedShoulder && v > valleyThreshold) break;
+        if (passedShoulder && v > valley+valleyThreshold) break;
     }
     return std::make_pair(beginIndex,endIndex);
 }
