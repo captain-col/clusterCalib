@@ -109,6 +109,40 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     }
 #endif
     
+#define TIME_OVERRIDE
+#ifdef TIME_OVERRIDE
+    {
+        // Find the time by looking at samples near the peak.
+        std::vector<double>::iterator maxBin = sampleCharge.end();
+        for (std::vector<double>::iterator s = sampleCharge.begin();
+             s != sampleCharge.end(); ++s) {
+            if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
+        }
+        if (maxBin != sampleCharge.end()) {
+            std::vector<double>::iterator lowBin = maxBin;
+            while (lowBin != sampleCharge.begin()) {
+                --lowBin;
+                if (2.0*rms < step*(maxBin-lowBin)) break;
+            }
+            std::vector<double>::iterator hiBin = maxBin;
+            while (hiBin != sampleCharge.end()) {
+                if (2.0*rms < step*(hiBin-maxBin)) break;
+                ++hiBin;
+            }
+            time = 0.0;
+            double w = 0.0;
+            int bin = 0;
+            for (std::vector<double>::iterator b = lowBin; b != hiBin; ++b) {
+                time += (*b)*bin;
+                w += (*b);
+                ++bin;
+            }
+            time *= step/w;
+            time += step*(lowBin-sampleCharge.begin()) + startTime + step/2.0;
+        }
+    }
+#endif
+    
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.
     double timeUnc = rms/std::sqrt(samples);
