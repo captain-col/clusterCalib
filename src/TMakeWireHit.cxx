@@ -101,8 +101,10 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
             double lowVal=(0.5*(*maxBin)-(*lowBin))/(*(lowBin+1)-(*lowBin));
             double hiVal = (0.5*(*maxBin)-(*hiBin))/(*(hiBin-1)-(*hiBin));
             int diff = hiBin-lowBin;
-            // Convert FWHM into an RMS.
+            // Convert FWHM into an RMS.  The 2.36 factor is the ratio between
+            // the rms and the FWHM for a Gaussian peak.
             rms = 1.0*(diff - lowVal - hiVal)/2.36;
+            rms *= step;
         }
     }
 #endif
