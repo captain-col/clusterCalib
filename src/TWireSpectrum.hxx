@@ -20,7 +20,7 @@ public:
 #if ROOT_VERSION(6,0,0) < ROOT_VERSION_CODE
     typedef double EntryType;
 #else
-    typedef EntryType float;
+    typedef float EntryType;
 #endif
     
     /// If the parameter is true, then the electron lifetime is corrected.
