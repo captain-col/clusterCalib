@@ -1,5 +1,7 @@
-#include <eventLoop.hxx>
+#include "GaussianNoise.hxx"
+#include "FindPedestal.hxx"
 
+#include <eventLoop.hxx>
 #include <TPulseDigit.hxx>
 #include <HEPUnits.hxx>
 #include <CaptGeomId.hxx>
@@ -81,9 +83,11 @@ public:
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-extremaHist.png").c_str());
 
+        gPad->SetLogy(true);
         fCountPeaksHist->Draw();
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-countPeaksHist.png").c_str());
+        gPad->SetLogy(false);
 
         fPeakChanHist->SetMinimum(fNoiseHist->GetMean());
         gPad->SetLogy(true);
@@ -201,10 +205,10 @@ public:
             fCountPeaksHist = new TH1F("countPeaksHist",
                                     (titlePrefix.str() +
                                      "FFT samples great than 0.5").c_str(),
-                                    maxASIC, 1, maxASIC+1);
-            fCountPeaksHist->SetXTitle("wire number");
-            fCountPeaksHist->SetYTitle("no. events");
-	    //fCountPeaksHist->SetStats(false);
+                                    maxWire, 1, maxWire+1);
+            fCountPeaksHist->SetXTitle("Wire Number");
+            fCountPeaksHist->SetYTitle("Number of Events");
+	    fCountPeaksHist->SetStats(false);
         }
 
         if (!fCorrChanHist) {
@@ -261,10 +265,9 @@ public:
             fCorrWireHist
                 = new TH2F("corrWireHist",
                            (titlePrefix.str() 
-                            + "Correlations for all wires "
-                            + "(unattached follow attached)").c_str(),
-                           maxASIC, 1, maxASIC+1,
-                           maxASIC, 1, maxASIC+1);
+                            + "Correlations for all wires").c_str(),
+                           maxWire, 1, maxWire+1,
+                           maxWire, 1, maxWire+1);
             fCorrWireHist->SetStats(false);
             fCorrWireHist->SetMinimum(-1);
             fCorrWireHist->SetMaximum(1);
@@ -274,9 +277,8 @@ public:
             fMaxCorrWireHist
                 = new TH1F("maxCorrWireHist",
                            (titlePrefix.str() +
-                            + "Max correlation for all wires "
-                            + "(unattached after attached)").c_str(),
-                            maxASIC, 1.0, maxASIC+1);
+                            + "Max correlation for all wires").c_str(),
+                           maxWire, 1.0, maxWire+1);
             fMaxCorrWireHist->SetXTitle("Wire");
             fMaxCorrWireHist->SetYTitle("Max Correlation Coefficient");
             fMaxCorrWireHist->SetStats(false);
@@ -286,9 +288,8 @@ public:
             fPeakWireHist = new TH1F("peakWireHist",
                                      (titlePrefix.str()
                                       + "RMS peak height (top quintile)"
-                                      + " on each wire"
-                                      + " (unattached after attached)").c_str(),
-                                     maxASIC, 1, maxASIC+1);
+                                      + " on each wire").c_str(),
+                                     maxWire, 1, maxWire+1);
             fPeakWireHist->SetXTitle("Wire Number");
             fPeakWireHist->SetYTitle("|ADC|");
             fPeakWireHist->SetStats(false);
@@ -323,7 +324,6 @@ public:
         
         std::vector<float> powerRange;
 
-        int noWire = maxWire;
         for (std::size_t d = 0; d < drift->size(); ++d) {
             const CP::TPulseDigit* pulse 
                 = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -337,7 +337,6 @@ public:
             double deltaFreq = 2.0*nyquistFreq/nSize;
 
             int wire = chanInfo.GetWireNumber(pulse->GetChannelId());
-            if (wire<0) ++noWire;
 
             if (differences.size() != pulse->GetSampleCount()) {
                 differences.resize(pulse->GetSampleCount());
@@ -367,9 +366,8 @@ public:
                     = new TH2F("wireFFTHist",
                                (titlePrefix.str() 
                                 + "Max FFT power in window"
-                                + " for wires"
-                                + " (unattached after attached)").c_str(),
-                               maxASIC, 1.0, maxASIC+1,
+                                + " for wires").c_str(),
+                               maxWire, 1.0, maxWire+1,
                                (nSize/2-1)/20, deltaFreq, nyquistFreq);
                 fWireFFTHist->SetXTitle("Wire");
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
@@ -388,37 +386,12 @@ public:
             }
 
             // Find the average pedestal and subtract it.
-            double pedestal = 0.0;
-            for (std::size_t i=0; i<pulse->GetSampleCount(); ++i) {
-                double p = pulse->GetSample(i);
-                pedestal += p;
-            }
-            pedestal /= pulse->GetSampleCount();
+            double pedestal = CP::FindPedestal(pulse->begin(), pulse->end());
             pedestals[d] = pedestal;
 
-            // Calculate the channel-to-channel Gaussian sigma.  The 52
-            // percentile is a of the sample-to-sample differences is a good
-            // estimate of the distribution sigma.  The 52% "magic" number
-            // comes looking at the differences of two samples (that gives a
-            // sqrt(2)) and wanting the RMS (which is the 68%).  This gives
-            // 48% (which is 68%/sqrt(2)).  Then because of the ordering after
-            // the sort, the bin we look at is 1.0-52%.
-            for (std::size_t i=1; i< pulse->GetSampleCount(); ++i) {
-                differences[i]
-                    = std::abs(pulse->GetSample(i)-pulse->GetSample(i-1));
-            }
-            differences[0] = 0.0;
-            std::sort(differences.begin(), differences.end());
-            int median = 0.52*pulse->GetSampleCount();
-            std::pair<std::vector<double>::iterator,
-                      std::vector<double>::iterator> bounds;
-            bounds = std::equal_range(differences.begin(), differences.end(),
-                                      differences[median]);
-            double gaussNoise = (differences.begin()+median)-bounds.first;
-            gaussNoise /= bounds.second-bounds.first;
-            gaussNoise += differences[median]-0.5;
+            double gaussNoise = CP::GaussianNoise(pulse->begin(), pulse->end());
             fGaussHist->Fill(std::max(gaussNoise,0.0));
-            
+
             // Find the minima and maxima and use them to tabulate the peak
             // heights.
             std::vector<double> localExtrema;
@@ -448,10 +421,7 @@ public:
             }
             rmsExtrema = sqrt(rmsExtrema);
             fExtremaHist->Fill(rmsExtrema);
-            if (wire<0) {
-                fPeakWireHist->SetBinContent(noWire+0.1,rmsExtrema);
-            }
-            else {
+            if (wire>=0) {
                 fPeakWireHist->SetBinContent(wire+0.1,rmsExtrema);
             }
             fPeakChanHist->SetBinContent(asic+0.1,rmsExtrema);
@@ -472,7 +442,7 @@ public:
             fFFT->Transform();
 
             std::ostringstream histBaseName;
-            if (wire>0) {
+            if (0 <= wire) {
                 histBaseName << "W:"
                              << std::setw(4) 
                              << std::setfill('0') << wire<<"-";
@@ -487,7 +457,7 @@ public:
             histBaseName << chanName;
 
             std::ostringstream histBaseTitle;
-            if (wire>0) histBaseTitle << "wire " << wire << " ";
+            if (0 <= wire) histBaseTitle << "wire " << wire << " ";
             histBaseTitle << chanName;
             
             TH1F* fftHist 
@@ -526,9 +496,11 @@ public:
                     fChanFFTHist->SetBinContent(d+1,b,p);
                 }
                 b = 1+2*fWireFFTHist->GetNbinsY()*i/nSize;
-                m = fWireFFTHist->GetBinContent((wire<0)?noWire:wire,b);
-                if (p > m || m == 0.0) {
-                    fWireFFTHist->SetBinContent((wire<0)?noWire:wire,b,p);
+                if (0 <= wire) {
+                    m = fWireFFTHist->GetBinContent(wire,b);
+                    if (p > m || m == 0.0) {
+                        fWireFFTHist->SetBinContent(wire,b,p);
+                    }
                 }
                 b = 1+2*fASICFFTHist->GetNbinsY()*i/nSize;
                 m = fASICFFTHist->GetBinContent(asic,b);
@@ -537,10 +509,8 @@ public:
                 }
             }
 
-	    if (wire < 0) {
-		    fCountPeaksHist->SetBinContent(noWire+0.1, peakCounter);
-	    } else {
-		    fCountPeaksHist->SetBinContent(wire+0.1,peakCounter);
+	    if (0 <= wire) {
+                fCountPeaksHist->SetBinContent(wire+0.1,peakCounter);
 	    }
 
             fNoiseHist->Fill(std::sqrt(amp));
@@ -566,7 +536,6 @@ public:
         fASICFFTHist->SetMaximum(maxPower);
 
         // Calculate the correlations.
-        int noWire1 = maxWire;
         for (std::size_t d1 = 0; d1 < drift->size(); ++d1) {
             const CP::TPulseDigit* pulse1
                 = dynamic_cast<const CP::TPulseDigit*>((*drift)[d1]);
@@ -582,13 +551,10 @@ public:
             asic1 = 16*asic1+ chanInfo.GetASICChannel(id1)-1;
 
             int wire1 = chanInfo.GetWireNumber(id1);
-            if (wire1<0) ++noWire1;
-            
             double pedestal1 = pedestals[d1];
             double sigma1 = sigmas[d1];
 
             double maxCorr = 0.0;
-            int noWire2 = maxWire;
             for (std::size_t d2 = 0; d2 < drift->size(); ++d2) {
                 if (d1 == d2) continue;
                 const CP::TPulseDigit* pulse2
@@ -605,7 +571,6 @@ public:
                 asic2 = 16*asic2+ chanInfo.GetASICChannel(id2)-1;
 
                 int wire2 = chanInfo.GetWireNumber(id2);
-                if (wire2<0) ++noWire2;
                 
                 double pedestal2 = pedestals[d2];
                 double sigma2 = sigmas[d2];
@@ -621,17 +586,12 @@ public:
 
                 fCorrChanHist->SetBinContent(d1,d2,corr12);
                 fCorrASICHist->SetBinContent(asic1,asic2,corr12);
-                fCorrWireHist->SetBinContent(
-                    ((wire1<0) ? noWire1: wire1),
-                    ((wire2<0) ? noWire2: wire2),
-                    corr12);
+                fCorrWireHist->SetBinContent(wire1,wire2,corr12);
                 if (std::abs(maxCorr) < std::abs(corr12)) maxCorr = corr12;
             }
             fMaxCorrChanHist->SetBinContent(d1,std::abs(maxCorr));
             fMaxCorrASICHist->SetBinContent(asic1,std::abs(maxCorr));
-            fMaxCorrWireHist->SetBinContent(
-                ((wire1<0) ? noWire1: wire1),
-                std::abs(maxCorr));
+            fMaxCorrWireHist->SetBinContent(wire1,std::abs(maxCorr));
         }
                 
         return true;
@@ -686,7 +646,6 @@ private:
     TH1F* fMaxCorrChanHist;
     TH1F* fMaxCorrASICHist;
     TH1F* fMaxCorrWireHist;
-    
     
     /// A file to draw the wire histogram in (usually png).
     std::string fPrintFile;
