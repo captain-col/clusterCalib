@@ -1,28 +1,29 @@
-#ifndef FindPedestal_hxx_seen
-#define FindPedestal_hxx_seen
+#ifndef GaussianNoise_hxx_seen
+#define GaussianNoise_hxx_seen
 #include <algorithm>
 #include <vector>
 #include <utility>
 
 namespace CP {
-
-    /// Estimate the pedestal for samples between iterators [begin,end).  The
-    /// pedestal is based on the median of the ADC values, and is interpolated
-    /// around the median value. This will work for both integer and floating
-    /// point input iterators.  For example if
-    /// \code
-    /// const CP::TPulseDigit* pulse = digit.As<const CP::TPulseDigit>();
-    /// double pedestal = CP::FindPedestal(pulse->begin(), pulse->end());
-    /// \endcode
+    /// Calculate the channel-to-channel Gaussian sigma.  The 52 percentile is
+    /// a of the sample-to-sample differences is a good estimate of the
+    /// distribution sigma.  The 52% "magic" number comes looking at the
+    /// differences of two samples (that gives a sqrt(2)) and wanting the RMS
+    /// (which is the 68%).  This gives 48% (which is 68%/sqrt(2)).  Then
+    /// because of the ordering after the sort, the bin we look at is 1.0-52%.
     template <typename iter>
-    double FindPedestal(iter begin, iter end) {
+    double GaussianNoise(iter begin, iter end) {
+        if (begin == end) return 0.0;
         std::size_t length = end - begin;
         std::vector<typename iter::value_type> work;
         work.reserve(length);
-        std::copy(begin,end,std::back_inserter(work));
+        while (begin+1 != end) {
+            work.push_back(std::abs(*begin - *(begin+1)));
+            ++begin;
+        }
         std::sort(work.begin(),work.end());
         typename std::vector<typename iter::value_type>::iterator middle
-            = work.begin() + work.size()/2;
+            = work.begin() + 0.52*work.size();
         if (middle == work.begin()) return *middle;
         std::pair<iter,iter> bounds
             = std::equal_range(work.begin(), work.end(), *middle);
