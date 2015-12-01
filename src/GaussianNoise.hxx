@@ -15,8 +15,9 @@ namespace CP {
     double GaussianNoise(iter begin, iter end) {
         if (begin == end) return 0.0;
         std::size_t length = end - begin;
-        std::vector<typename iter::value_type> work;
-        work.reserve(length);
+        static std::vector<typename iter::value_type> work;
+        if (work.capacity() < length) work.reserve(length);
+        work.clear();
         while (begin+1 != end) {
             work.push_back(std::abs(*begin - *(begin+1)));
             ++begin;

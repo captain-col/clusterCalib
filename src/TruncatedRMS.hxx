@@ -22,8 +22,9 @@ namespace CP {
         std::size_t lowBound = trunc*length;
         std::size_t highBound = (1.0-trunc)*length;
         if (highBound < lowBound+1) return std::pair<double,double>(0.0,0.0);
-        std::vector<typename iter::value_type> work;
-        work.reserve(length);
+        static std::vector<typename iter::value_type> work;
+        if (work.capacity() < length) work.reserve(length);
+        work.clear();
         std::copy(begin,end,std::back_inserter(work));
         std::sort(work.begin(),work.end());
         double average = 0.0;
