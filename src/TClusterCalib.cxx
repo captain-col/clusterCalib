@@ -81,20 +81,36 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             makePMTHits(*pmtHits,*calib);
         }
     }
+    if (pmtHits->size() > 0) {
+        // If there are any PMT hits found, add them to the output.
+        CP::THandle<CP::TDataVector> hits
+            = event.Get<CP::TDataVector>("~/hits");
+        hits->AddDatum(pmtHits.release());
+    }
 
     ///////////////////////////////////////////////////////////////////////
     // Find the event time zero.
     ///////////////////////////////////////////////////////////////////////
-    double t0 = std::numeric_limits<double>::max();
-    if (pmtHits->size() > 0) {
-        for (CP::THitSelection::iterator p = pmtHits->begin();
-             p != pmtHits->end(); ++p) {
-            t0 = std::min((*p)->GetTime(),t0);
+    double t0 = 0.0;
+    CP::THandle<CP::THitSelection> pmtSelection = event.GetHits("pmt");
+    std::vector<double> pmtTimes;
+    for (CP::THitSelection::iterator p = pmtSelection->begin();
+         p != pmtSelection->end(); ++p) {
+        pmtTimes.push_back((*p)->GetTime());
+    }
+    std::sort(pmtTimes.begin(), pmtTimes.end());
+    int maxHits = 0;
+    for (std::vector<double>::iterator t = pmtTimes.begin();
+         t != pmtTimes.end(); ++t) {
+        std::vector<double>::iterator h = t;
+        while (++h != pmtTimes.end()) {
+            if (*h - *t > 2*unit::microsecond) break;
         }
-        // Add the pmt hits to the output.
-        CP::THandle<CP::TDataVector> hits
-            = event.Get<CP::TDataVector>("~/hits");
-        hits->AddDatum(pmtHits.release());
+        int dh = h - t;
+        if (dh > maxHits) {
+            maxHits = dh;
+            t0 = *t;
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -125,6 +141,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     CP::TWirePeaks makeWireHits(fApplyDriftCalibration,
                                 fApplyEfficiencyCalibration);
 #endif
+
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse
