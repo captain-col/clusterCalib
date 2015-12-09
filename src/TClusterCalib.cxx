@@ -514,22 +514,29 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
 
+#define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
-    static TH1F* gClusterCalibVRatio = NULL;
     static TH1F* gClusterCalibURatio = NULL;
+    static TH1F* gClusterCalibVRatio = NULL;
+    static TH1F* gClusterCalibXRatio = NULL;
     if (!gClusterCalibVRatio) {
-        gClusterCalibVRatio = new TH1F("clusterCalibVRatio",
-                                      "Ratio of V charge to X charge",
-                                       100,0.0,10);
         gClusterCalibURatio = new TH1F("clusterCalibURatio",
                                       "Ratio of U charge to X charge",
                                        100,0.0,10);
-
+        gClusterCalibVRatio = new TH1F("clusterCalibVRatio",
+                                      "Ratio of V charge to charge",
+                                       100,0.0,10);
+        gClusterCalibXRatio = new TH1F("clusterCalibXRatio",
+                                      "Ratio of X charge to U-V average",
+                                       100,0.0,10);
     }
     if (xWireCharge > 0) {
-        gClusterCalibVRatio->Fill(vWireCharge/xWireCharge);
         gClusterCalibURatio->Fill(uWireCharge/xWireCharge);
+        gClusterCalibVRatio->Fill(vWireCharge/xWireCharge);
+    }
+    if (uWireCharge + vWireCharge > 0) {
+        gClusterCalibXRatio->Fill(2.0*xWireCharge/(uWireCharge+vWireCharge));
     }
 #endif
 
