@@ -11,7 +11,7 @@ public:
     TClusterCalibLoop() {
         fClusterCalib = NULL;
         fActivityFilter = NULL;
-        fSavePulses = false;
+        fSavePulses = true;
         fApplyDriftCalibration = false;
         fApplyEfficiencyCalibration = true;
     }
