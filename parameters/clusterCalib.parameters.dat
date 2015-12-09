@@ -86,6 +86,12 @@ region is not considered baseline.
 < clusterCalib.deconvolution.fluctuationCut = 3 >
 < clusterCalib.deconvolution.coherenceCut = 10 >
 
+The baseline follows a random walk so it can drift in one direction, but if
+the drift in a particular direction is to much, it's not baseline any more.
+
+< clusterCalib.deconvolution.driftZone = 10 >
+< clusterCalib.deconvolution.driftCut = 3 >
+
 The baseline can follow a random walk, but if the estimate gets more than
 the this cut times the sigma of the baseline then assume it's actually
 signal.
