@@ -34,6 +34,12 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fCoherenceCut 
         = CP::TRuntimeParameters::Get().GetParameterI(
             "clusterCalib.deconvolution.coherenceCut");
+    fDriftZone 
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.deconvolution.driftZone");
+    fDriftCut
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.deconvolution.driftCut");
     fFFT = NULL;
     fInverseFFT = NULL;
     fElectronicsResponse = NULL;
@@ -244,15 +250,29 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         deconv->SetSample(i,v);
     }
 
-    RemoveBaseline(*deconv);
+    RemoveBaseline(*deconv, calib);
 
     return deconv.release();
 }
 
-void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
+void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
+                                             const CP::TCalibPulseDigit& calib) {
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+    TH1F* calibHist 
+        = new TH1F((calib.GetChannelId().AsString()+"-calib").c_str(),
+                   ("Calibibrated signal before deconvolution " 
+                    + calib.GetChannelId().AsString()).c_str(),
+                   calib.GetSampleCount(),
+                   calib.GetFirstSample(), calib.GetLastSample());
+    for (std::size_t i = 0; i<calib.GetSampleCount(); ++i) {
+        calibHist->SetBinContent(i+1,calib.GetSample(i));
+    }
+#endif
+    
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
     TH1F* offsetHist 
@@ -265,7 +285,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
         offsetHist->SetBinContent(i+1,digit.GetSample(i));
     }
 #endif
-        
+
     // Find the sample median and it's "sigma".
     for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
         diff[i] = digit.GetSample(i);
@@ -336,9 +356,9 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     TChannelCalib channelCalib;
     double driftSigma = fSampleSigma;
     if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
-        driftSigma  *= std::sqrt(fCoherenceZone);
+        driftSigma  *= std::sqrt(fDriftZone);
     }
-    double driftCut = fFluctuationCut * driftSigma;
+    double driftCut = fDriftCut * driftSigma;
 
     // Refill the differences... This has to be done since we are reusing an
     // existing variable (instead of allocating extra space).
@@ -374,7 +394,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // Fill the drifts for the samples.
     for (std::size_t i=0; i<drift.size(); ++i) {
         // Find the start of the coherence zone.
-        int startZone = i - fCoherenceZone;
+        int startZone = i - fDriftZone;
 
         if (startZone < 0) startZone = 0;
 
@@ -389,7 +409,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
 
     for (std::size_t i=drift.size()-1; 0 < i; --i) {
         // Find the start of the coherence zone.
-        std::size_t startZone = i + fCoherenceZone;
+        std::size_t startZone = i + fDriftZone;
 
         double deltaSample = 0.0;
         for (std::size_t j = i+1; j<=startZone; ++j) {
@@ -518,7 +538,8 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit) {
     // drift variable will take the new candidate baseline values.  This
     // overwrites the drift vector to save an allocation (i.e. false
     // optimization!).  After the end of this section, drift will have a value
-    // for anyplace where the signal is not baseline like.
+    // for anyplace where the signal is baseline like, but not already part of
+    // the baseline.
     for (std::size_t i = 1; i<baseline.size()-1; ++i) {
         drift[i] = unfilledBaseline;
         if (std::isfinite(baseline[i])) continue;

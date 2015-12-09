@@ -48,7 +48,8 @@ private:
 
     /// Remove the baseline drift from the deconvolution.  This looks at the
     /// sample to sample fluctuations to estimate the background.
-    void RemoveBaseline(CP::TCalibPulseDigit& digit);
+    void RemoveBaseline(CP::TCalibPulseDigit& digit,
+                        const CP::TCalibPulseDigit& calib);
 
     /// A convenient holder for the number of samples used in the FFT.  This
     /// must equivalent to fFFT->GetN()[0], or there is a bug.  The
@@ -116,6 +117,16 @@ private:
     /// region to be considered "coherent".  This is set using the parameter
     /// clusterCalib.deconvolutioncoherenceCut.
     double fCoherenceCut;
+
+    /// When determining where the peaks probably are so they can be excluded
+    /// from the baseline estimate, this is the number of samples over which
+    /// the drift is estimated.  This is set using the parameter
+    /// clusterCalib.deconvolution.driftZone.
+    int fDriftZone;
+
+    /// The maximum drift in terms of sigma that will be considered a baseline
+    /// fluctuation.
+    double fDriftCut;
 
     /// The baseline sigma relative to the average baseline.
     double fBaselineSigma;
