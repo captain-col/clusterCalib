@@ -3,6 +3,7 @@
 #include "TWireResponse.hxx"
 #include "TNoiseFilter.hxx"
 #include "TChannelCalib.hxx"
+#include "GaussianNoise.hxx"
 
 #include <TCalibPulseDigit.hxx>
 #include <TEvent.hxx>
@@ -22,6 +23,9 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
     fSmoothingWindow = CP::TRuntimeParameters::Get().GetParameterI(
         "clusterCalib.deconvolution.smoothing");
     fSmoothingWindow = std::max(1,fSmoothingWindow + 1);
+    fMinimumSigma 
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.deconvolution.minimumSigma");
     fFluctuationCut 
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.deconvolution.fluctuationCut");
@@ -153,8 +157,12 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         // Make sure that the signal is zero at the very start.  This
         // distorts the beginning of the signal, but there is a long
         // buffer of noise there anyway.
-        double scale = 10.001;
+        double scale = 100.001;
         if (i<scale) val *= 1.0*i/scale;
+        if (i > calib.GetSampleCount()-scale && i < calib.GetSampleCount()) {
+            val *= 1.0*(calib.GetSampleCount()-i)/scale;
+        }
+        
         fFFT->SetPoint(i,val);
     }
 
@@ -255,8 +263,17 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     return deconv.release();
 }
 
-void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
-                                             const CP::TCalibPulseDigit& calib) {
+void CP::TPulseDeconvolution::RemoveBaseline(
+    CP::TCalibPulseDigit& digit,
+    const CP::TCalibPulseDigit& calib) {
+    TChannelCalib channelCalib;
+
+#define ONLY_BIPOLAR_BASELINE
+#ifdef ONLY_BIPOLAR_BASELINE
+    // Only remove the baseline if it's a bipolar channel.
+    if (!channelCalib.IsBipolarSignal(digit.GetChannelId())) return;
+#endif
+
     std::vector<double> diff;
     diff.resize(digit.GetSampleCount());
 
@@ -306,44 +323,16 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
     // this is disabled.
     double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
     if (fBaselineCut < 0) baselineCut = 1.0E+16;
-    
-    // Find the median sample to sample difference.  Regions where the samples
-    // stay withing a small difference don't have a "feature of interest".
-    for (std::size_t i=1; i<digit.GetSampleCount(); ++i) {
-        double delta = std::abs(digit.GetSample(i) - digit.GetSample(i-1));
-        diff[i] = delta;
-    }
-    diff[0] = 0.0;
-    std::sort(diff.begin(), diff.end());
 
-    // The 52 percentile is a of the sample-to-sample differences is a good
-    // estimate of the distribution sigma.  The 52% "magic" number comes
-    // looking at the differences of two samples (that gives a sqrt(2)) and
-    // wanting the RMS (which is the 68%).  This gives 48% (which is
-    // 68%/sqrt(2)).  Then because of the ordering after the sort, the bin we
-    // look at is 1.0-52%.  The minimum allowable fluctuation is 1 electron
-    // charge.
-    int iMedian = 0.52*diff.size();
-
-    // Count the number of channels that have the same value as the median
-    // ADC difference.
-    int iLow = iMedian;
-    while (iLow > 0) {
-        if (diff[iLow] != diff[iMedian]) break;
-        --iLow;
+    if (fMinimumSigma < -1) {
+        fSampleSigma = - fMinimumSigma;
     }
-    std::size_t iHigh = iMedian;
-    while ((iHigh+1)<diff.size()) {
-        if (diff[iHigh] != diff[iMedian]) break;
-        ++iHigh;
+    else {
+        fSampleSigma = GaussianNoise(digit.begin(), digit.end());
+        if (fSampleSigma < fMinimumSigma) {
+            fSampleSigma = fMinimumSigma;
+        }
     }
-    double lowBound = iMedian-iLow;
-    double range = iHigh - iLow;
-    
-    // Interpolate between the integer values for the ADC counts to find
-    // the interpolated median.
-    double fSampleSigma = diff[iMedian] + lowBound/range;
-    if (fSampleSigma < 1.0) fSampleSigma = 1.0;
     
     // Define a cut for the maximum change between two samples.  If the
     // difference is greater than this, then the samples are not "coherent".
@@ -353,7 +342,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
 
     // Define a cut for the maximum drift in one direction within a coherence
     // zone.  If the drift is more than this, then the region is not baseline.
-    TChannelCalib channelCalib;
     double driftSigma = fSampleSigma;
     if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
         driftSigma  *= std::sqrt(fDriftZone);
@@ -522,24 +510,28 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
         }
 
         // We've found a sample that should be considered part of the
-        // baseline, so add it to the vector for book keeping.
+        // baseline, so add it to the vector for bookkeeping.
         int offset = (int) (0.5*fCoherenceZone);
         baseline[i+offset] = digit.GetSample(i+offset);
-
     }
 
-    // The baseline will equal to unfilledBaseline for any point that is not
-    // baseline-like with gaps that correspond to where the sample is changing
-    // more rapidly that would be expected from pure statistics.  The next
-    // step is to tentatively interpolate into those zones and check if the
-    // interpolated baseline is bigger than the sample.  If the interpolated
-    // baseline is bigger, then the sample becomes the new baseline for that
-    // point (but not if it's a big fluctuation from it's neighbors).  The
-    // drift variable will take the new candidate baseline values.  This
-    // overwrites the drift vector to save an allocation (i.e. false
-    // optimization!).  After the end of this section, drift will have a value
-    // for anyplace where the signal is baseline like, but not already part of
-    // the baseline.
+    ///////////////////////////////////////////////////////////////////////
+    // The baseline vector will now be equal to the digit sample at any point
+    // that is baseline like.  Any point that is not baseline like will have a
+    // value unfilledBaseline.
+    ///////////////////////////////////////////////////////////////////////
+
+#define DIP_FINDING
+#ifdef DIP_FINDING
+    // The next step is to tentatively interpolate into
+    // those zones and check if the interpolated baseline is bigger than the
+    // sample.  If the interpolated baseline is bigger, then the sample
+    // becomes the new baseline for that point (but not if it's a big
+    // fluctuation from it's neighbors).  The drift variable will take the new
+    // candidate baseline values.  This overwrites the drift vector to save an
+    // allocation (i.e. false optimization!).  After the end of this section,
+    // drift will have a value for anyplace where the signal is baseline like,
+    // but not already part of the baseline.
     for (std::size_t i = 1; i<baseline.size()-1; ++i) {
         drift[i] = unfilledBaseline;
         if (std::isfinite(baseline[i])) continue;
@@ -569,25 +561,20 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
         i = j;
     }
 
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-    TH1F* interpHist 
-        = new TH1F((digit.GetChannelId().AsString()+"-interp").c_str(),
-                   ("Interp for " 
-                    + digit.GetChannelId().AsString()).c_str(),
-                   digit.GetSampleCount(),
-                   digit.GetFirstSample(), digit.GetLastSample());
-    for (std::size_t i = 0; i<digit.GetSampleCount(); ++i) {
+    /// Copy the found troughs back into the baseline.
+    for (std::size_t i = 0; i<baseline.size(); ++i) {
         if (!std::isfinite(drift[i])) continue;
-        interpHist->SetBinContent(i+1, drift[i]);
+        if (std::isfinite(baseline[i])) continue;
+        baseline[i] = drift[i];
     }
 #endif
-        
+    
     // Smooth the baseline to get rid of the highest frequency components, and
     // put the smoothed components into drift.  This fills in the gaps in
     // drift around where the baseline had already been estimated.
     int baselineWindow = 5;
     for (int i = 0; i<(int)baseline.size(); ++i) {
+        drift[i] = unfilledBaseline;
         // Skip non-baseline like regions.
         if (!std::isfinite(baseline[i])) continue;
         // Apply smoothing to the input signal.  This is controlled with
@@ -614,12 +601,13 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
         drift[i] = val/weight;
     }
 
-    // copy what we know back into baseline.
-    std::copy(drift.begin(), drift.end(), baseline.begin());
-
-    // Now do a final interpolation to get the baseline everywhere.
+    // At this point, drift contains the smoothed baseline.  Now copy it back
+    // into baseline and interpolate any unfilled values.
     for (std::size_t i = 0; i<baseline.size(); ++i) {
-        if (std::isfinite(drift[i])) continue;
+        if (std::isfinite(drift[i])) {
+            baseline[i] = drift[i];
+            continue;
+        }
         std::size_t j = i;
         while (0<j && !std::isfinite(drift[j])) --j;
         std::size_t k = i;
@@ -655,10 +643,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(CP::TCalibPulseDigit& digit,
         }
         fBaselineSigma += baseline[i]*baseline[i];
         aveBaseline += baseline[i];
-#ifdef ONLY_BIPOLAR_BASELINE
-        // Only remove the baseline if it's a bipolar channel.
-        if (!channelCalib.IsBipolarSignal(digit.GetChannelId())) continue;
-#endif
         double d = digit.GetSample(i) - baseline[i];
         digit.SetSample(i,d);
     }

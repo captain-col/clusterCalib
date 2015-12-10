@@ -97,8 +97,15 @@ private:
     /// by using a value of zero (that means no side-band samples are used).
     int fSmoothingWindow;
 
+    /// Set the minimum allowed RMS for the calibrated samples around the
+    /// baseline.  It's used when the sample RMS is zero (usually because the
+    /// MC is being run without any noise.  This sets the minimum value for
+    /// fSamlpeSigma.  If this has a negative value, then it is directly used
+    /// (or rather abs(fMinimumSigma) is directly used.
+    double fMinimumSigma;
+
     /// Hold the cut for random fluctuations.  This is in units of the RMS of
-    /// the sample-to-sample fluctuations.  This is set using
+    /// the sample fluctuations.  This is set using
     /// clusterCalib.deconvolution.fluctuationCut.
     double fFluctuationCut;
 

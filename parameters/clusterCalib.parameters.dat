@@ -75,6 +75,12 @@ filter.  This should have a value "near" to one.
 
 < clusterCalib.deconvolution.noisePower = 1.0 >
 
+Set the minimum RMS used to apply the cuts for a channel.  If this value is
+negative then the absolute value is used direction instead of calculating
+the rms for the channel.
+
+< clusterCalib.deconvolution.minimumSigma = 10 >
+
 The pulse deconvolution will remove the baseline from the pulse.  The base
 line is determined by runs of coherenceZone samples with fluctuations of
 less that sigma*fluctuationCut.  The sigma is the sigma of the
