@@ -291,11 +291,11 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     double noise = fWork[inoise];
 
     // Protect against a "zero" channel.
-    if (noise < 10) {
+    if (noise < 3) {
         CaptLog("Wire with no signal: " << deconv.GetChannelId()
                 << " noise: " << noise
                 << " max: " << fWork[deconv.GetSampleCount()-1]);
-        return wireCharge;
+        // return wireCharge;
     }
     
     // Don't bother with channels that have crazy big noise.  This says if the
