@@ -91,28 +91,35 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     ///////////////////////////////////////////////////////////////////////
     // Find the event time zero.
     ///////////////////////////////////////////////////////////////////////
-    double t0 = 0.0;
+    double pmtT0 = 0.0;
     CP::THandle<CP::THitSelection> pmtSelection = event.GetHits("pmt");
-    std::vector<double> pmtTimes;
-    for (CP::THitSelection::iterator p = pmtSelection->begin();
-         p != pmtSelection->end(); ++p) {
-        pmtTimes.push_back((*p)->GetTime());
-    }
-    std::sort(pmtTimes.begin(), pmtTimes.end());
-    int maxHits = 0;
-    for (std::vector<double>::iterator t = pmtTimes.begin();
-         t != pmtTimes.end(); ++t) {
-        std::vector<double>::iterator h = t;
-        while (++h != pmtTimes.end()) {
-            if (*h - *t > 2*unit::microsecond) break;
+    if (pmtSelection) {
+        std::vector<double> pmtTimes;
+        for (CP::THitSelection::iterator p = pmtSelection->begin();
+             p != pmtSelection->end(); ++p) {
+            pmtTimes.push_back((*p)->GetTime());
         }
-        int dh = h - t;
-        if (dh > maxHits) {
-            maxHits = dh;
-            t0 = *t;
+        std::sort(pmtTimes.begin(), pmtTimes.end());
+        int maxHits = 0;
+        for (std::vector<double>::iterator t = pmtTimes.begin();
+             t != pmtTimes.end(); ++t) {
+            std::vector<double>::iterator h = t;
+            while (++h != pmtTimes.end()) {
+                if (*h - *t > 2*unit::microsecond) break;
+            }
+            int dh = h - t;
+            if (dh > maxHits) {
+                maxHits = dh;
+                pmtT0 = *t;
+            }
         }
     }
-
+#ifdef USE_PMT_TIME_ZERO
+    double t0 = pmtT0;
+#else
+    double t0 = 0.0;
+#endif
+    
     ///////////////////////////////////////////////////////////////////////
     /// Drift Calibration
     ///////////////////////////////////////////////////////////////////////
