@@ -43,4 +43,18 @@ MAJOR UPDATE:
 ** Add lots of internal histograms that can be turned on by setting
    compilation flags.
 
+
+\section clusterCalib_v0r2p0_history Version 0.2.0
+
+Freeze information:
+   - Freeze Date: Thu Feb 25 14:23:56 2016
+   - Freeze User: mcgrew
+   - Freeze Host: boxer boxer 
+
+
+This is the first freeze after lots of work on the CR commissioning data,
+and includes many new features (to many to list).  Probably the most
+important ones are improved treatment of noise (i.e. a better optimal
+filter), and it works with GCC 5.
+
 */
