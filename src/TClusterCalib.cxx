@@ -12,6 +12,10 @@
 #include <CaptGeomId.hxx>
 #include <TUnitsTable.hxx>
 #include <TChannelCalib.hxx>
+#include <TChannelId.hxx>
+#include <TTPCChannelId.hxx>
+#include <TPDSChannelId.hxx>
+#include <TDataHit.hxx>
 
 #include <TChannelInfo.hxx>
 
@@ -81,6 +85,48 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             makePMTHits(*pmtHits,*calib);
         }
     }
+
+#define PMT_TRIGGER_ON_TPC_CHANNEL 
+#ifdef PMT_TRIGGER_ON_TPC_CHANNEL
+    ///////////////////////////////////////////////////////////////////////
+    // Insert fact PMT hits for the PDS trigger signals.  These are in PMT 
+    // 1000 (for the geomID).
+    if (event.Get<CP::TDigitContainer>("~/digits/drift")) {
+        CP::THandle<CP::TDigitContainer> drift
+            = event.Get<CP::TDigitContainer>("~/digits/drift");
+        for (std::size_t d = 0; d < drift->size(); ++d) {
+            const CP::TPulseDigit* pulse
+                = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
+            if (!pulse) {
+                CaptError("Non-pulse in drift digits");
+                continue;
+            }
+            if (pulse->GetChannelId() != CP::TTPCChannelId(2,7,27)) continue;
+            CP::TChannelCalib calib;
+            double timeOffset = calib.GetTimeConstant(pulse->GetChannelId(),0);
+            double digitStep = calib.GetTimeConstant(pulse->GetChannelId(),1);
+            CP::TDigitProxy proxy(*drift,d);
+            for(int s = 1; s<pulse->GetSampleCount(); ++s) {
+                int delta = pulse->GetSample(s-1) - pulse->GetSample(s);
+                if (delta > 100) {
+                    std::cout << "Trigger w/ delta " << delta <<"  at " << s
+                              << std::endl;
+                    CP::TWritableDataHit hit;
+                    hit.SetGeomId(CP::GeomId::Captain::Photosensor(1000));
+                    hit.SetDigit(proxy);
+                    hit.SetCharge(1);
+                    hit.SetChargeUncertainty(1);
+                    hit.SetTime(digitStep*s + timeOffset);
+                    hit.SetTimeUncertainty(500*unit::ns);
+                    hit.SetTimeRMS(500*unit::ns);
+                    pmtHits->push_back(
+                        CP::THandle<CP::TDataHit>(new CP::TDataHit(hit)));
+                }
+            }
+        }
+    }
+#endif
+    
     if (pmtHits->size() > 0) {
         // If there are any PMT hits found, add them to the output.
         CP::THandle<CP::TDataVector> hits
