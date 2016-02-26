@@ -407,6 +407,9 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         // of height, so this tends to keep the biggest hits.  This only cuts
         // hits on really noisy wires.
         if (fMaxPeaks > 0 && (std::size_t) fMaxPeaks <= peaks.size()) {
+            CaptError("Found more than " << fMaxPeaks
+                      << " hits for channel "
+                      << deconv.GetChannelId());
             break;
         }
         // Mark these samples as used...
