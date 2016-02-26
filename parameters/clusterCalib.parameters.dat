@@ -24,21 +24,21 @@ signal.
 The minimum peak charge value of a peak candidate.  The units are in
 collected electrons
 
-< clusterCalib.peakSearch.charge.collection = 2000 electrons >
-< clusterCalib.peakSearch.charge.induction = 2000 electrons >
+< clusterCalib.peakSearch.charge.collection = 1000 electrons >
+< clusterCalib.peakSearch.charge.induction = 1000 electrons >
 
 The minimum area of a peak candidate.  The expectation is that a MIP will
 create approximately 6000 thermal electrons per mm.  The units are in
 collected electrons.
 
-< clusterCalib.peakSearch.area.collection = 6000 electrons >
-< clusterCalib.peakSearch.area.induction = 6000 electrons >
+< clusterCalib.peakSearch.area.collection = 4000 electrons >
+< clusterCalib.peakSearch.area.induction = 4000 electrons >
 
 The FWHM of the narrowest real peak.  Peaks candidates that are narrower
 than this are rejected.
 
-< clusterCalib.peakSearch.width.collection = 0.5 us >
-< clusterCalib.peakSearch.width.induction = 0.5 us >
+< clusterCalib.peakSearch.width.collection = 0.2 us >
+< clusterCalib.peakSearch.width.induction = 0.2 us >
 
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
