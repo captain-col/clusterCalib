@@ -57,4 +57,24 @@ and includes many new features (to many to list).  Probably the most
 important ones are improved treatment of noise (i.e. a better optimal
 filter), and it works with GCC 5.
 
+
+\section clusterCalib_v0r2p1_history Version 0.2.1
+
+Freeze information:
+   - Freeze Date: Fri Feb 26 11:43:05 2016
+   - Freeze User: mcgrew
+   - Freeze Host: boxer boxer 
+
+
+BUG FIXES:
+
+* Make sure that this handles the case where there is no PMT selection.
+
+NEW FEATURES and CHANGES
+
+* Lower the default hit threshold.
+
+* Add a fake PMT hit generated using the PDS trigger inserted into TPC
+  channel 2:7:27.
+
 */
