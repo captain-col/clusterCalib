@@ -109,8 +109,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             for(int s = 1; s<pulse->GetSampleCount(); ++s) {
                 int delta = pulse->GetSample(s-1) - pulse->GetSample(s);
                 if (delta > 100) {
-                    std::cout << "Trigger w/ delta " << delta <<"  at " << s
-                              << std::endl;
                     CP::TWritableDataHit hit;
                     hit.SetGeomId(CP::GeomId::Captain::Photosensor(1000));
                     hit.SetDigit(proxy);
@@ -137,6 +135,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     ///////////////////////////////////////////////////////////////////////
     // Find the event time zero.
     ///////////////////////////////////////////////////////////////////////
+#ifdef USE_PMT_TIME_ZERO
     double pmtT0 = 0.0;
     CP::THandle<CP::THitSelection> pmtSelection = event.GetHits("pmt");
     if (pmtSelection) {
@@ -160,7 +159,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             }
         }
     }
-#ifdef USE_PMT_TIME_ZERO
     double t0 = pmtT0;
 #else
     double t0 = 0.0;
