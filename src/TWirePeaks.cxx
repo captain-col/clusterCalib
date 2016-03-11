@@ -98,6 +98,7 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (v < shoulderThreshold) passedShoulder = true;
         if (v < fIntegrationChargeThreshold*peak) break;
         if (passedShoulder && v > valley+valleyThreshold) break;
+        if (fWork[beginIndex] > 0.5) break;
     }
 
     valley = peak;
@@ -113,6 +114,7 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (v < shoulderThreshold) passedShoulder = true;
         if (v < fIntegrationChargeThreshold*peak) break;
         if (passedShoulder && v > valley+valleyThreshold) break;
+        if (fWork[endIndex] > 0.5) break;
     }
     return std::make_pair(beginIndex,endIndex);
 }
@@ -401,7 +403,11 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         if (fwhm < peakWidthCut) {
             continue;
         }
-        // This looks like a real hit, so save it for later.
+        // This looks like a real hit, so mark the samples as used, and save
+        // the extent for later.
+        for (int j = extent.first; j <= extent.second; ++j) {
+            fWork[j] = 1.0;
+        }
         peaks.push_back(extent);
         // Stop if we are getting to many peaks.  The peaks are built in order
         // of height, so this tends to keep the biggest hits.  This only cuts
@@ -411,10 +417,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                       << " hits for channel "
                       << deconv.GetChannelId());
             break;
-        }
-        // Mark these samples as used...
-        for (int j = extent.first; j <= extent.second; ++j) {
-            fWork[j] = 1.0;
         }
     }
 
