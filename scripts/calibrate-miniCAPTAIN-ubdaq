@@ -1,0 +1,39 @@
+#!/bin/bash
+# An example of a script using captain-control to run the calibration
+#  for miniCAPTAIN.  This assumes it's getting a ubdaq file (and no
+#  PDS file).  This takes the full path name to a ubdaq file and uses
+#  it to extract the run number.  The output file is generated in the
+#  current directory.
+
+usage () {
+    echo ${0} '<tpc-data-filey>'
+    exit 1
+}
+
+if [ ${#1} != 0 ]; then
+    TPC_DATA=${1}
+    shift
+else
+    usage
+fi
+
+if [ ! -f ${TPC_DATA} ]; then
+    echo '"'${TPC_DATA}'"' does not exist.
+    echo File not found.
+    exit 1
+fi
+
+RUN_NUMBER=$(echo ${TPC_DATA} | sed 's/.*mCAPTAIN_EXT-\([0-9]\{1,\}\)-.*/\1/')
+echo ${RUN_NUMBER}
+echo ${TPC_DATA}
+
+# setup the environment.  This assumes that the script is running in an
+# initialized package.
+source captain-control.bash
+
+captain-experiment nb      # This is the neutron beam running.
+captain-data-source mcapt  # using miniCAPTAIN
+captain-run-type spl       # with a spill trigger
+captain-run-number ${RUN_NUMBER}
+captain-run-calibration ${TPC_DATA} -tubdaq -G miniCAPTAIN ${*}
+
