@@ -93,6 +93,9 @@ void CP::TPulseDeconvolution::Initialize() {
 CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator() 
     (const CP::TCalibPulseDigit& calib) {
 
+    fBaselineSigma = 0.0;
+    fSampleSigma = 0.0;
+    
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
     TChannelCalib channelCalib;
 
@@ -491,7 +494,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(
         }
 
         // Don't consider very high signals to be baseline
-        if (digit.GetSample(i)> baselineCut) {
+        if (digit.GetSample(i) > baselineCut) {
             continue;
         }
 

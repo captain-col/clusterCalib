@@ -432,6 +432,47 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
         
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        static TH1F* gClusterCalibXBaselineSigma = NULL;
+        static TH1F* gClusterCalibVBaselineSigma = NULL;
+        static TH1F* gClusterCalibUBaselineSigma = NULL;
+        double minBaselineSigma = 0.0;
+        double maxBaselineSigma = 20000.0;
+        if (!gClusterCalibXBaselineSigma) {
+            gClusterCalibXBaselineSigma =
+                new TH1F("clusterCalibXBaselineSigma",
+                         "Calibrated BaselineSigma for the X wires",
+                         100, minBaselineSigma, maxBaselineSigma);
+        }
+        if (!gClusterCalibUBaselineSigma) {
+            gClusterCalibUBaselineSigma =
+                new TH1F("clusterCalibUBaselineSigma",
+                         "Calibrated BaselineSigma for the U wires",
+                         100, minBaselineSigma, maxBaselineSigma);
+        }
+        if (!gClusterCalibVBaselineSigma) {
+            gClusterCalibVBaselineSigma =
+                new TH1F("clusterCalibVBaselineSigma",
+                         "Calibrated BaselineSigma for the V wires",
+                         100, minBaselineSigma, maxBaselineSigma);
+        }
+        
+        for (CP::THitSelection::iterator h = driftHits->begin();
+             h != driftHits->end(); ++h) {
+            TGeometryId id = (*h)->GetGeomId();
+            TH1F* hist = NULL;
+            switch (CP::GeomId::Captain::GetWirePlane(id)) {
+            case 0: hist = gClusterCalibXBaselineSigma; break;
+            case 1: hist = gClusterCalibVBaselineSigma; break;
+            case 2: hist = gClusterCalibUBaselineSigma; break;
+            default: std::exit(1);
+            }
+            double q = fDeconvolution->GetBaselineSigma();
+            hist->Fill(q);
+        }
+#endif
+
         // Check to see if the drift-deconv digit container exists.  If it does
         // exist, then it will be filled with the deconvoluted digits.
         CP::THandle<CP::TDigitContainer> driftDeconv
