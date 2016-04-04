@@ -5,6 +5,9 @@ package clusterCalib
 manager Clark McGrew <clark.mcgrew@stonybrook.edu>
 author Clark McGrew <clark.mcgrew@stonybrook.edu>
 
+# Activate MathMore for use with root.
+apply_tag ROOT_use_MathMore
+
 # The packages used by this one.  Only direct dependencies should be
 # included. 
 use captChanInfo
