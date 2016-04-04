@@ -147,12 +147,43 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // the RMS.
     double timeUnc = rms/std::sqrt(samples);
 
-    // The charge uncertainty is calculated assuming the limit of Poisson
-    // statistics, but assumes that the background uncertainties are
-    // correlated.
-    double sig = sampleSigma*std::sqrt(samples);
-    double chargeUnc = std::sqrt(charge + sig*sig) + baselineSigma*samples;
+    // Calculate the charge uncertainty (the calculate starts with chargeUnc
+    // being the variance, and then takes the sqrt).  The fundamental
+    // uncertainty is in the number of electrons (Poisson distributed).
+    double chargeUnc = charge/unit::eplus;
 
+    // Add uncertainty for the sample to sample RMS.  These are fluctuations
+    // introduced by the gaussian fluctuations of the electronics (including
+    // shot noise).
+    double sig = sampleSigma*std::sqrt(samples);
+    chargeUnc += sig*sig;
+
+    // Channels that have had baseline subtraction, will have a positive
+    // baslineSigma (this only affects the induction planes).  In this case
+    // add a correlated uncertainty for the "wandering of the baseline".  This
+    // is analogous to the deviation of the track from a "bestfit" straight
+    // line (the s_plane parameter in the PDG notation).  The RMS is
+    // correlated between all the channels, but is uncorrelated with the other
+    // uncertainties (number of electrons, and electronics noise).  The
+    // uncertainty for the "baseline wander" is approximated as the
+    // sampleSigma.  This should be calculated separately, but since the
+    // wander is from the same physics as the sample sigma, it should be a
+    // good approximation.
+    double sigB = 0.0;
+    if (baselineSigma > 0) {
+        sigB = samples*sampleSigma/4.0;
+        chargeUnc += sigB*sigB;
+    }
+    
+    // Now take the sqrt of the variance to get the uncertainty.
+    chargeUnc = std::sqrt(chargeUnc);
+
+    CaptNamedInfo("TMakeWireHit", digit.GetChannelId() << " Sigma " << charge
+                  << " " << samples
+                  << " " << sig
+                  << " " << sigB
+                  << " " << chargeUnc);
+    
     CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
 

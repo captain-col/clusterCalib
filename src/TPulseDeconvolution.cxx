@@ -261,6 +261,15 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         deconv->SetSample(i,v);
     }
 
+    // Find the sample to sample variation in the deconvolved signal.
+    if (fMinimumSigma < -1) {
+        fSampleSigma = - fMinimumSigma;
+    }
+    else {
+        fSampleSigma = GaussianNoise(deconv->begin(), deconv->end());
+        fSampleSigma = std::max(fMinimumSigma,fSampleSigma);
+    }
+
     RemoveBaseline(*deconv, calib);
 
     return deconv.release();
@@ -317,7 +326,7 @@ void CP::TPulseDeconvolution::RemoveBaseline(
     baselineSigma = std::abs(baselineSigma-baselineMedian);
 
     // The minimum baseline fluctuation is 1 electron charge.
-    if (baselineSigma < 1) baselineSigma = 1.0;
+    if (baselineSigma < 1) baselineSigma = 1.0*unit::eplus;
     
     // Define a maximum separation between the sample and the median sample.
     // If it's more than this, then the sample is not baseline.  This is one
@@ -327,16 +336,6 @@ void CP::TPulseDeconvolution::RemoveBaseline(
     double baselineCut = baselineMedian + fBaselineCut*baselineSigma;
     if (fBaselineCut < 0) baselineCut = 1.0E+16;
 
-    if (fMinimumSigma < -1) {
-        fSampleSigma = - fMinimumSigma;
-    }
-    else {
-        fSampleSigma = GaussianNoise(digit.begin(), digit.end());
-        if (fSampleSigma < fMinimumSigma) {
-            fSampleSigma = fMinimumSigma;
-        }
-    }
-    
     // Define a cut for the maximum change between two samples.  If the
     // difference is greater than this, then the samples are not "coherent".
     // If too many samples in a "coherence zone" are not considered coherent,
