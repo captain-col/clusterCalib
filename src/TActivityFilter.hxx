@@ -11,7 +11,9 @@ namespace CP {
 };
 
 /// This is a very simplistic activity filter.  This returns true if there is
-/// sufficient activity in the detector to make the event "interesting".
+/// sufficient activity in the detector to make the event "interesting".  It
+/// only uses the X planes and requires at least a segment of "track" to be
+/// found.  There is a very loose definition of "track".
 class CP::TActivityFilter {
 public:
     TActivityFilter();
@@ -40,21 +42,21 @@ public:
         fMinimumSignal = v;
     }
 
-    /// Set the number of active channels required before an event is
+    /// Set the number of hits found in a cluster before an event is
     /// considered to contain activity.
-    void SetRequiredChannels(int i) {
-        std::cout << "TActivityFilter:: Set the required channels: "
+    void SetRequiredHits(int i) {
+        std::cout << "TActivityFilter:: Set the required hits: "
                   << i
                   << std::endl;
-        fRequiredChannels = i;
+        fRequiredHits = i;
     }
     
-    /// Set the maximum number of active channels allowed in an event
-    void SetMaximumRequiredChannels(int i) {
-        std::cout << "TActivityFilter:: Set maximum required channels: "
+    /// Set the maximum number of hits in an event.
+    void SetMaximumAllowedHits(int i) {
+        std::cout << "TActivityFilter:: Set maximum allowed hits: "
                   << i
                   << std::endl;
-        fMaximumRequiredChannels = i;
+        fMaximumAllowedHits = i;
     }
 
 private:
@@ -67,12 +69,12 @@ private:
     /// baseline for the channel to be counted as active.  This is in "sigma".
     double fRequiredSignificance;
 
-    /// The number of channels that must be active in the detector for the
+    /// The number of hits that must be in a cluster for the
     /// event to be considered to have activity.
-    int fRequiredChannels;
+    int fRequiredHits;
 
-    /// The maximum number of channels that are allowed to register activity
-    int fMaximumRequiredChannels;
+    /// The maximum number of hits that are allowed to register activity
+    int fMaximumAllowedHits;
     
 };
 #endif

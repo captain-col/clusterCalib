@@ -19,15 +19,15 @@ public:
     virtual ~TClusterCalibLoop() {};
 
     void Usage(void) {
-        std::cout << "   -O filter[=c:S:s:C] Apply a simple event activity filter"
+        std::cout << "   -O filter[=S]:h]:s:]H] Apply an event activity filter"
                   << std::endl
-                  << "        c: Number of required channels"
+                  << "        S: Override number of ADC above baseline"
                   << std::endl
-                  << "        S: Required ADC above baseline"
+                  << "        h: Override number of hits in cluster"
                   << std::endl
-                  << "        s: Required significance above baseline"
+                  << "        s: Override significance above baseline"
                   << std::endl
-                  << "        C: Required maximum channels"
+                  << "        H: Override maximum allowed number of hits"
                   << std::endl;
         std::cout << "   -O pulse      "
                   << "Save the calibrated (after deconvolution) pulses"
@@ -61,24 +61,26 @@ public:
             fActivityFilter = new CP::TActivityFilter();
             if (value!="") {
                 std::istringstream vStr(value);
-                int chan;
-                vStr >> chan;
-                if (chan>0) fActivityFilter->SetRequiredChannels(chan);
-                char colon;
-                vStr >> colon;
-                if (colon != ':') return false;
                 double v;
                 vStr >> v;
                 if (v>0) fActivityFilter->SetMinimumSignal(v);
+                char colon;
                 vStr >> colon;
-                if (colon != ':') return false;
+                if (colon != ':') return true;
+
+                int chan;
+                vStr >> chan;
+                if (chan>0) fActivityFilter->SetRequiredHits(chan);
+                vStr >> colon;
+                if (colon != ':') return true;
+
                 vStr >> v;
                 if (v>0) fActivityFilter->SetRequiredSignificance(v);
                 vStr >> colon;
-                if (colon != ':') return false;
-                int chan2;
-                vStr >> chan2;
-                if (chan2>0) fActivityFilter->SetMaximumRequiredChannels(chan2);
+                if (colon != ':') return true;
+                
+                vStr >> chan;
+                if (chan>0) fActivityFilter->SetMaximumAllowedHits(chan);
             }
         }
         else return false;
@@ -99,8 +101,10 @@ public:
         // data.
         if (fActivityFilter) {
             bool result = (*fActivityFilter)(event);
-            CaptLog("Reject " << event.GetContext());
-            if (!result) return false;
+            if (!result) {
+                CaptLog("Reject " << event.GetContext());
+                return false;
+            }
         }
         
         // Run the calibration on the event.

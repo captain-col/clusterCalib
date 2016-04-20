@@ -1,4 +1,5 @@
 #include "TActivityFilter.hxx"
+#include "TTmplDensityCluster.hxx"
 
 #include <TPulseDigit.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -9,20 +10,35 @@
 #include <HEPUnits.hxx>
 
 #include <vector>
+#include <utility>
+
+namespace {
+    class HitDistanceMetric {
+    public:
+        double operator() (const std::pair<double,double>& lhs,
+                           const std::pair<double,double>& rhs) {
+            double x = std::abs(lhs.first-rhs.first);
+            double z = std::abs(lhs.second-rhs.second);
+            return std::sqrt(x*x+z*z);
+        }
+    };
+    typedef CP::TTmplDensityCluster<std::pair<double,double>,
+                                    HitDistanceMetric> HitCluster;
+}
 
 CP::TActivityFilter::TActivityFilter() {
-    fRequiredChannels
+    fRequiredHits
         = CP::TRuntimeParameters::Get().GetParameterI(
-            "clusterCalib.filter.requiredChannels");
+            "clusterCalib.filter.requiredHits");
+    fMaximumAllowedHits
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.filter.maximumAllowedHits");
     fRequiredSignificance
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.filter.requiredSignificance");
     fMinimumSignal 
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.filter.minimumSignal");
-    fMaximumRequiredChannels
-        = CP::TRuntimeParameters::Get().GetParameterI(
-            "clusterCalib.filter.maximumRequiredChannels");
 }
 
 CP::TActivityFilter::~TActivityFilter() {}
@@ -30,21 +46,14 @@ CP::TActivityFilter::~TActivityFilter() {}
 bool CP::TActivityFilter::operator() (CP::TEvent& event) {
     CP::TChannelInfo::Get().SetContext(event.GetContext());
 
-#ifdef PMT_ACTIVITY_CHECK
-    /// Check if there is any PMT activity
-    CP::THandle<CP::TDigitContainer> pmt
-        = event.Get<CP::TDigitContainer>("~/digits/pmt");
-#endif
-
-
-    /// There wasn't PMT activity, so check for wire activity.
     CP::THandle<CP::TDigitContainer> drift
         = event.Get<CP::TDigitContainer>("~/digits/drift");
     if (!drift) return false;
 
     std::vector<double> work;
     
-    int significantChannels = 0;
+    std::vector< std::pair<double,double> > xWireHits;
+    
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* digit
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -53,10 +62,10 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
             continue;
         }
 
-        // Check that we have a wire;
+        // Check that we have an X wire;
         CP::TChannelId cid = digit->GetChannelId();
         CP::TGeometryId geometryId = CP::TChannelInfo::Get().GetGeometry(cid);
-        if (!CP::GeomId::Captain::IsWire(geometryId)) continue;
+        if (!CP::GeomId::Captain::IsXWire(geometryId)) continue;
         
         if (work.size() != digit->GetSampleCount()) {
             work.resize(digit->GetSampleCount());
@@ -69,28 +78,24 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         std::sort(work.begin(), work.end());
         double pedestal = work[0.5*digit->GetSampleCount()];
 
-        // Reject channels that have a strange pedestal
+        // Reject channels that have a strange pedestals
         if (pedestal < 200) continue;
         if (pedestal > 3000) continue;
         
-        // Calculate the raw channel sigma.
+        // Calculate the raw and Gaussian sigma for the channel.
         double channelSigma = 0.0;
-        for (std::size_t i=0; i< digit->GetSampleCount(); ++i) {
+        for (std::size_t i=1; i< digit->GetSampleCount(); ++i) {
             double v = digit->GetSample(i) - pedestal;
             channelSigma += v*v;
+            work[i] = std::abs(digit->GetSample(i)-digit->GetSample(i-1));
         }
         channelSigma /= digit->GetSampleCount();
         channelSigma = std::sqrt(channelSigma);
 
-        
         // Reject channels that don't show any activity.
         if (channelSigma < 0.5) continue;
 
-#ifdef CALCULATE_GAUSSIAN_SIGMA
-        // Calculate the Gaussian sigma for the channel.
-        for (std::size_t i=1; i< digit->GetSampleCount(); ++i) {
-            work[i] = std::abs(digit->GetSample(i)-digit->GetSample(i-1));
-        }
+        // Find the "RMS" based on sample to sample fluctuations.
         work[0] = 0.0;
         std::sort(work.begin(), work.end());
         int iMedian = 0.52*digit->GetSampleCount();
@@ -103,7 +108,7 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
             --iLow;
         }
         int iHigh = iMedian;
-        while ((iHigh+1)<work.size()) {
+        while ((std::size_t) (iHigh+1)<work.size()) {
             if (work[iHigh] != work[iMedian]) break;
             ++iHigh;
         }
@@ -113,25 +118,41 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
         // Interpolate between the integer values for the ADC counts to find
         // the interpolated median.
         double gaussianSigma = work[iMedian] + lowDiff/diff;
-#endif        
 
         // Check if there is activity on this channel.  This ignores the very
         // beginning and very end of the time window.
         for (std::size_t i=0.05*digit->GetSampleCount();
              i < 0.95*digit->GetSampleCount(); ++i) {
             double signal = digit->GetSample(i)-pedestal;
-            if (fRequiredSignificance*channelSigma <= signal
+            double rise = digit->GetSample(i-1)-pedestal;
+            if (rise >= signal) continue;
+            rise = digit->GetSample(i-2)-pedestal;
+            if (rise >= signal) continue;
+            double fall = digit->GetSample(i+1)-pedestal;
+            if (fall >= signal) continue;
+            fall = digit->GetSample(i+2)-pedestal;
+            if (fall >= signal) continue;
+            if (fRequiredSignificance*gaussianSigma <= signal
                 && fMinimumSignal <= signal) {
-                ++significantChannels;
-                break;
+                double x = 3.0*CP::GeomId::Captain::GetWireNumber(geometryId);
+                double z = 1.6*0.5*i; // 1.6 mm/us * 0.5 us/sample * samples
+                xWireHits.push_back(std::make_pair(x,z));
             }
         }
     }
 
-    if ((significantChannels >= fRequiredChannels) && (significantChannels <= fMaximumRequiredChannels)) {
-        CaptLog("Save event: " << event.GetContext());
-        return true;
-    }
+    CaptLog("Filter with " << xWireHits.size() << " hits");
+    if (xWireHits.size() > (std::size_t) fMaximumAllowedHits) return false;
 
-    return false;
+    // Form a cluster requiring two neighbors, and that the hits be in
+    // adjacent wires (wire spacing is 3mm).
+    HitCluster hitCluster(2,5.5);
+    hitCluster.Cluster(xWireHits.begin(), xWireHits.end());
+    CaptLog("Clusters found " << hitCluster.GetClusterCount());
+    if (hitCluster.GetClusterCount() < 1) return false;
+    
+    CaptLog("Size of biggest cluster " << hitCluster.GetCluster(0).size());
+    if (hitCluster.GetCluster(0).size()<(std::size_t)fRequiredHits) return false;
+
+    return true;
 }
