@@ -90,6 +90,7 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
     
     std::size_t beginIndex = peakIndex;
     for (std::size_t i=peakIndex; i>0; --i) {
+        if (0.5 < fWork[i]) break;
         double v = deconv.GetSample(i);
         if (v < valley) {
             valley = v;
@@ -98,7 +99,6 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (v < shoulderThreshold) passedShoulder = true;
         if (v < fIntegrationChargeThreshold*peak) break;
         if (passedShoulder && v > valley+valleyThreshold) break;
-        if (fWork[beginIndex] > 0.5) break;
     }
 
     valley = peak;
@@ -106,6 +106,7 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
 
     std::size_t endIndex = peakIndex;
     for (std::size_t i=peakIndex; i<deconv.GetSampleCount(); ++i) {
+        if (0.5 < fWork[i]) break;
         double v = deconv.GetSample(i);
         if (v < valley) {
             valley = v;
@@ -114,7 +115,6 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (v < shoulderThreshold) passedShoulder = true;
         if (v < fIntegrationChargeThreshold*peak) break;
         if (passedShoulder && v > valley+valleyThreshold) break;
-        if (fWork[endIndex] > 0.5) break;
     }
     return std::make_pair(beginIndex,endIndex);
 }
@@ -420,6 +420,26 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         }
     }
 
+    // Sort the peaks by sample number.
+    if (!peaks.empty()) std::sort(peaks.begin(), peaks.end());
+
+#ifdef CHECK_FOR_PEAK_OVERLAP
+    std::vector< std::pair<int,int> >::iterator last = peaks.end();
+    for(std::vector< std::pair<int,int> >::iterator p = peaks.begin();
+        p != peaks.end(); ++p) {
+        if (last != peaks.end()) {
+            if (p->first <= last->second) {
+                CaptError("Overlapping hits for "
+                          << deconv.GetChannelId()
+                          << " " << last->first << "--" << last->second
+                          << " overlaps "
+                          << " " << p->first << "--" << p->second);
+            }
+        }
+        last = p;
+    }
+#endif
+    
     // Make all the hits.  
     CP::TMakeWireHit makeHit(fCorrectElectronLifetime,
                              fCorrectCollectionEfficiency);
