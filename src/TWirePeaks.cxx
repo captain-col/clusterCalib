@@ -450,6 +450,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                                                sampleSigma,
                                                p->first, p->second,
                                                false);
+        if (!newHit) continue;
         wireCharge += newHit->GetCharge();
         hits.push_back(newHit);
     }

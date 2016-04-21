@@ -103,8 +103,8 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
             int diff = hiBin-lowBin;
             // Convert FWHM into an RMS.  The 2.36 factor is the ratio between
             // the rms and the FWHM for a Gaussian peak.
-            rms = 1.0*(diff - lowVal - hiVal)/2.36;
-            rms *= step;
+            double bins = 1.0*(diff - lowVal - hiVal)/2.36;
+            if (bins > 1) rms = bins*step;
         }
     }
 #endif
@@ -189,12 +189,20 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
 
     if (!geomId.IsValid()) return CP::THandle<CP::THit>();
 
-    if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
-        CaptError("Time uncertainty for " << digit.GetChannelId()
-                  << " is not positive or and finite ");
+    if (!std::isfinite(rms) || rms <= 0.0) {
+        CaptError("Time RMS for " << digit.GetChannelId()
+                  << " is not positive and finite ("
+                  << rms << " out of " << sampleCharge.size() << ")");
         timeUnc = 1*unit::second;
     }
-    if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
+
+    if (!std::isfinite(timeUnc) || timeUnc <= 0.0) {
+        CaptError("Time uncertainty for " << digit.GetChannelId()
+                  << " is not positive and finite (" << timeUnc << ")");
+        timeUnc = 1*unit::second;
+    }
+
+        if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
         CaptError("Charge uncertainty for " << digit.GetChannelId()
                   << " is not positive and finite " << samples);
         chargeUnc = 1*unit::coulomb;
@@ -219,6 +227,51 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
         charge *= std::exp(deltaT/calib.GetElectronLifetime());
         chargeUnc *= std::exp(deltaT/calib.GetElectronLifetime());
     }
+
+    // Check the hit validity.
+    bool isValid = true;
+    if (!std::isfinite(charge)) {
+        CaptError("Invalid hit charge for " << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(chargeUnc) || chargeUnc <= 0.0) {
+        CaptError("Invalid hit charge uncertainty for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(time)) {
+        CaptError("Invalid hit time for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(timeUnc)) {
+        CaptError("Invalid hit time uncertainty for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(rms)) {
+        CaptError("Invalid hit time RMS for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(startTime)) {
+        CaptError("Invalid hit start time for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (!std::isfinite(stopTime)) {
+        CaptError("Invalid hit stop time for "
+                  << digit.GetChannelId());
+        isValid = false;
+    }
+    if (sampleCharge.size()<1) {
+        CaptError("Invalid hit charge samples "
+                  << digit.GetChannelId()
+                  << " (samples == "<< sampleCharge.size() << ")");
+        isValid = false;
+    }
+
+    if (!isValid) return CP::THandle<CP::TFADCHit>();
 
     // Build the hit.
     CP::TWritableFADCHit hit;
