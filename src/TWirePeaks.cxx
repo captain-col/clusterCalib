@@ -1,6 +1,7 @@
 #include "TWirePeaks.hxx"
 #include "TMakeWireHit.hxx"
 #include "TChannelCalib.hxx"
+#include "TPulseDeconvolution.hxx"
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -76,8 +77,8 @@ CP::TWirePeaks::~TWirePeaks() {}
 
 std::pair<int, int>
 CP::TWirePeaks::PeakExtent(int peakIndex,
-                           const CP::TCalibPulseDigit& deconv,
-                           double baselineSigma, double sampleSigma) {
+                           const CP::TCalibPulseDigit& deconv) {
+
     double peak = deconv.GetSample(peakIndex);
     // The lowest point found so far.
     double valley = peak;
@@ -151,8 +152,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                                    const CP::TCalibPulseDigit& calib,
                                    const CP::TCalibPulseDigit& deconv,
                                    double t0,
-                                   double baselineSigma,
-                                   double sampleSigma) {
+                                   const CP::TPulseDeconvolution* pulseDeconv) {
     double wireCharge = 0.0;
 
     // Find the time per sample in the digit.
@@ -357,10 +357,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         // the channel.
         if (candidateHeight < noise*fNoiseThresholdCut) continue;
         // Find the extent of the peak.
-        std::pair<int, int> extent = PeakExtent(candidateIndex,
-                                                deconv,
-                                                baselineSigma,
-                                                sampleSigma);
+        std::pair<int, int> extent = PeakExtent(candidateIndex, deconv);
         // Find the charge in the peak candidate.
         double charge = 0.0;
         for (int j=extent.first; j<=extent.second; ++j) {
@@ -445,11 +442,11 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                              fCorrectCollectionEfficiency);
     for(std::vector< std::pair<int,int> >::iterator p = peaks.begin();
         p != peaks.end(); ++p) {
-        CP::THandle<CP::THit> newHit = makeHit(deconv, digitStep, t0,
-                                               baselineSigma,
-                                               sampleSigma,
-                                               p->first, p->second,
-                                               false);
+        CP::THandle<CP::THit> newHit
+            = makeHit(deconv, digitStep, t0,
+                      pulseDeconv,
+                      p->first, p->second,
+                      false);
         if (!newHit) continue;
         wireCharge += newHit->GetCharge();
         hits.push_back(newHit);

@@ -88,7 +88,7 @@ bool CP::TWireResponse::Calculate() {
 
     // Calculate the FFT of the response 
     int size = fResponse.size();
-    std::auto_ptr<TVirtualFFT> fft(TVirtualFFT::FFT(1,&size,"R2C ES K"));
+    std::unique_ptr<TVirtualFFT> fft(TVirtualFFT::FFT(1,&size,"R2C ES K"));
     if (size != (int) fResponse.size()) {
         CaptError("Invalid length for FFT");
         CaptError("     original length: " << fResponse.size());

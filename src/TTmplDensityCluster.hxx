@@ -86,11 +86,11 @@ template <typename T, typename MetricModel>
 ///    const double maxDist = 20*unit::cm;
 ///    const unsigned int minPoints = 4;
 ///    
-///    std::auto_ptr<ClusterAlgorithm>
+///    std::unique_ptr<ClusterAlgorithm>
 ///        xcluster(new ClusterAlgorithm(minPoints, maxDist));
 ///    xcluster->Cluster(xHits);
 ///
-///    std::auto_ptr<ClusterAlgorithm>
+///    std::unique_ptr<ClusterAlgorithm>
 ///        ycluster(new ClusterAlgorithm(minPoints, maxDist));
 ///    ycluster->Cluster(yHits);
 /// \endcode

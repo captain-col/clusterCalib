@@ -1,5 +1,5 @@
 #include "TMakeWireHit.hxx"
-#include "TChannelCalib.hxx"
+#include "TPulseDeconvolution.hxx"
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -10,6 +10,7 @@
 #include <TCaptLog.hxx>
 #include <TRuntimeParameters.hxx>
 #include <CaptGeomId.hxx>
+#include <TChannelCalib.hxx>
 
 #include <TSpectrum.h>
 #include <TH1F.h>
@@ -32,7 +33,7 @@ CP::TMakeWireHit::~TMakeWireHit() { }
 CP::THandle<CP::THit>
 CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
                              double step, double t0,
-                             double baselineSigma, double sampleSigma,
+                             const CP::TPulseDeconvolution* pulseDeconvolution,
                              std::size_t beginIndex, std::size_t endIndex,
                              bool split) {
     double charge = 0.0;
@@ -155,8 +156,10 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // Add uncertainty for the sample to sample RMS.  These are fluctuations
     // introduced by the gaussian fluctuations of the electronics (including
     // shot noise).
-    double sig = sampleSigma*std::sqrt(samples);
-    chargeUnc += sig*sig;
+    double sig = pulseDeconvolution->GetSampleSigma()*std::sqrt(samples);
+    double sigC = pulseDeconvolution->GetSampleSigma(samples);
+    
+    chargeUnc += sigC*sigC;
 
     // Channels that have had baseline subtraction, will have a positive
     // baslineSigma (this only affects the induction planes).  In this case
@@ -166,21 +169,25 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // correlated between all the channels, but is uncorrelated with the other
     // uncertainties (number of electrons, and electronics noise).  The
     // uncertainty for the "baseline wander" is approximated as the
-    // sampleSigma.  This should be calculated separately, but since the
+    // sample sigma.  This should be calculated separately, but since the
     // wander is from the same physics as the sample sigma, it should be a
     // good approximation.
     double sigB = 0.0;
-    if (baselineSigma > 0) {
-        sigB = samples*sampleSigma/4.0;
-        chargeUnc += sigB*sigB;
+    if (pulseDeconvolution->GetBaselineSigma() > 0) {
+        sigB = sigC/4.0;
+        chargeUnc += sigB*sigB - sigC*sigC;
     }
+
+    if (chargeUnc < 0.0) chargeUnc = sigC*sigC;
     
     // Now take the sqrt of the variance to get the uncertainty.
     chargeUnc = std::sqrt(chargeUnc);
 
     CaptNamedInfo("TMakeWireHit", digit.GetChannelId() << " Sigma " << charge
                   << " " << samples
+                  << " " << pulseDeconvolution->GetSampleSigma()
                   << " " << sig
+                  << " " << sigC
                   << " " << sigB
                   << " " << chargeUnc);
     

@@ -6,6 +6,7 @@
 
 namespace CP {
     class TMakeWireHit;
+    class TPulseDeconvolution;
 };
 
 /// Build a THit out of a sequence of samples in a TCalibPulseDigit.  The hit
@@ -30,7 +31,7 @@ public:
     CP::THandle<CP::THit> 
     operator ()(const CP::TCalibPulseDigit& digit, 
                 double digitStep, double t0,
-                double baselineSigma, double sampleSigma,
+                const CP::TPulseDeconvolution* pulseDeconvolution,
                 std::size_t beginIndex, std::size_t endIndex, bool split);
     
 private:

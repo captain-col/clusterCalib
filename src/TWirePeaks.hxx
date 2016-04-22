@@ -6,6 +6,7 @@
 
 namespace CP {
     class TWirePeaks;
+    class TPulseDeconvolution;
 };
 
 /// This takes a TCalibPulseDigit and turns it into one or more TDataHit
@@ -33,11 +34,10 @@ public:
     /// uncertainty is provided, this is the uncertainty of each measurement
     /// in the TCalibPulseDigit.  This returns the total charge on the wire.
     double operator () (CP::THitSelection& hits, 
-                      const CP::TCalibPulseDigit& calib,
-                      const CP::TCalibPulseDigit& deconv,
-                      double t0,
-                      double baseSigma = 0.0,
-                      double sampleSigma = 0.0);
+                        const CP::TCalibPulseDigit& calib,
+                        const CP::TCalibPulseDigit& deconv,
+                        double t0,
+                        const CP::TPulseDeconvolution* pulseDeconvolution);
 
 private:
 
@@ -45,9 +45,7 @@ private:
     /// and last indices in the peak (inclusive) i.e. [begin .. end], not the
     /// usual [begin .. end).
     std::pair<int, int> PeakExtent(int peakIndex,
-                                   const CP::TCalibPulseDigit& deconv,
-                                   double baselineSigma, double sampleSigma);
-
+                                   const CP::TCalibPulseDigit& deconv);
 
     /// Determine the FWHM of a peak given the peak bin.
     double PeakFWHM(int peakIndex,

@@ -54,7 +54,7 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
         "clusterCalib.deconvolution.spikePower");
     fNoiseFilter = new CP::TNoiseFilter(noisePower, spikePower);
     fBaselineSigma = 0.0;
-    fSampleSigma = 0.0;
+    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
     Initialize();
 }
 
@@ -88,13 +88,14 @@ void CP::TPulseDeconvolution::Initialize() {
     fWireResponse = new CP::TWireResponse(nSize);
 
     fBaselineSigma = 0.0;
+    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
 }
 
 CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator() 
     (const CP::TCalibPulseDigit& calib) {
 
     fBaselineSigma = 0.0;
-    fSampleSigma = 0.0;
+    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
     
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
     TChannelCalib channelCalib;
@@ -162,7 +163,8 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         // buffer of noise there anyway.
         double scale = 100.001;
         if (i<scale) val *= 1.0*i/scale;
-        if (i > calib.GetSampleCount()-scale && i < calib.GetSampleCount()) {
+        if (i > calib.GetSampleCount()-scale
+            && i < (int) calib.GetSampleCount()) {
             val *= 1.0*(calib.GetSampleCount()-i)/scale;
         }
         
@@ -198,7 +200,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
             double rl, im;
             fFFT->GetPointComplex(i,rl,im);
             std::complex<double> c(rl,im);
-        fftHist->SetBinContent(i+1, std::abs(c));
+            fftHist->SetBinContent(i+1, std::abs(c));
         }
     }
 #endif
@@ -253,7 +255,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     }
 
     fInverseFFT->Transform();
-    std::auto_ptr<CP::TCalibPulseDigit> deconv(new CP::TCalibPulseDigit(calib));
+    std::unique_ptr<CP::TCalibPulseDigit> deconv(new CP::TCalibPulseDigit(calib));
 
     // Set the samples into the calibrated pulse digit.
     for (std::size_t i=0; i<deconv->GetSampleCount(); ++i) {
@@ -261,13 +263,32 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         deconv->SetSample(i,v);
     }
 
+    // Calculate the uncertainty in the sum (RMS) as a function of number of
+    // samples in sum.
+    std::vector<double> integral;
+    integral.resize(deconv->GetSampleCount());
+    double sum = 0.0;
+    for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
+        sum += deconv->GetSample(i);
+        integral[i] = sum;
+    }
+    std::vector<double> diff;
+    diff.resize(deconv->GetSampleCount());
+    for (int step=1; step<50; ++step) {
+        for (int i=0; i<diff.size()-step; ++i) {
+            diff[i] = std::abs(integral[i+step]-integral[i]);
+        }
+        std::sort(diff.begin(), diff.end()-step);
+        fSampleSigma[step] = diff[0.68*diff.size()];
+    }
+    
     // Find the sample to sample variation in the deconvolved signal.
     if (fMinimumSigma < -1) {
-        fSampleSigma = - fMinimumSigma;
+        fSampleSigma[0] = - fMinimumSigma;
     }
     else {
-        fSampleSigma = GaussianNoise(deconv->begin(), deconv->end());
-        fSampleSigma = std::max(fMinimumSigma,fSampleSigma);
+        fSampleSigma[0] = GaussianNoise(deconv->begin(), deconv->end());
+        fSampleSigma[0] = std::max(fMinimumSigma,fSampleSigma[0]);
     }
 
     RemoveBaseline(*deconv, calib);
@@ -340,11 +361,11 @@ void CP::TPulseDeconvolution::RemoveBaseline(
     // difference is greater than this, then the samples are not "coherent".
     // If too many samples in a "coherence zone" are not considered coherent,
     // then the sample is not considered part of the baseline.
-    double deltaCut = fSampleSigma*fFluctuationCut;
+    double deltaCut = fSampleSigma[0]*fFluctuationCut;
 
     // Define a cut for the maximum drift in one direction within a coherence
     // zone.  If the drift is more than this, then the region is not baseline.
-    double driftSigma = fSampleSigma;
+    double driftSigma = fSampleSigma[0];
     if (channelCalib.IsBipolarSignal(digit.GetChannelId())) {
         driftSigma  *= std::sqrt(fDriftZone);
     }
@@ -544,8 +565,8 @@ void CP::TPulseDeconvolution::RemoveBaseline(
         double interp = (k-i)*baseline[j] + (i-j)*baseline[k];
         interp /= 1.0*(k-j);
         if (digit.GetSample(i) < interp
-            && diff[i]/fSampleSigma < 3.0
-            && diff[i+1]/fSampleSigma < 3.0) {
+            && diff[i]/fSampleSigma[0] < 3.0
+            && diff[i+1]/fSampleSigma[0] < 3.0) {
             drift[i] = digit.GetSample(i);
         }
     }

@@ -30,16 +30,20 @@ public:
     CP::TCalibPulseDigit* operator()(const CP::TCalibPulseDigit& digit);
 
     /// Get the number of samples in the FFT.
-    int GetSampleCount() {return fSampleCount;}
+    int GetSampleCount() const {return fSampleCount;}
 
     /// Get the baseline uncertainty.  This is calculated relative to the
     /// average baseline and represents the per sample uncertainty in the
     /// deconvolution.
-    double GetBaselineSigma() {return fBaselineSigma;}
+    double GetBaselineSigma() const {return fBaselineSigma;}
 
     /// Get the sample to sample sigma.  Represents the uncorrelated
     /// uncertainty between samples.
-    double GetSampleSigma() {return fSampleSigma;}
+    double GetSampleSigma(int i=0) const {
+        if (i<1) return fSampleSigma[0];
+        if (i<50) return fSampleSigma[i];
+        return fSampleSigma[49];
+    }
 
 private:
 
@@ -139,6 +143,6 @@ private:
     double fBaselineSigma;
     
     /// The sample to sample sigma.
-    double fSampleSigma;
+    double fSampleSigma[50];
 };
 #endif

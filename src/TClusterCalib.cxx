@@ -2,7 +2,6 @@
 #include "TPulseCalib.hxx"
 #include "TPulseDeconvolution.hxx"
 #include "TPMTMakeHits.hxx"
-#include "TWireSpectrum.hxx"
 #include "TWirePeaks.hxx"
 
 #include <TPulseDigit.hxx>
@@ -68,7 +67,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     CP::THandle<CP::TDigitContainer> pmt
         = event.Get<CP::TDigitContainer>("~/digits/pmt");
 
-    std::auto_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
+    std::unique_ptr<CP::THitSelection> pmtHits(new CP::THitSelection("pmt"));
     CP::TPMTMakeHits makePMTHits;
 
     if (pmt) {
@@ -81,7 +80,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                 continue;
             }
             CP::TDigitProxy proxy(*pmt,d);
-            std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+            std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
             makePMTHits(*pmtHits,*calib);
         }
     }
@@ -106,7 +105,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             double timeOffset = calib.GetTimeConstant(pulse->GetChannelId(),0);
             double digitStep = calib.GetTimeConstant(pulse->GetChannelId(),1);
             CP::TDigitProxy proxy(*drift,d);
-            for(int s = 1; s<pulse->GetSampleCount(); ++s) {
+            for(std::size_t s = 1; s<pulse->GetSampleCount(); ++s) {
                 int delta = pulse->GetSample(s-1) - pulse->GetSample(s);
                 if (delta > 100) {
                     CP::TWritableDataHit hit;
@@ -184,14 +183,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         return false;
     }
 
-    std::auto_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
-#ifdef USE_WIRE_SPECTRUM
-    CP::TWireSpectrum makeWireHits(fApplyDriftCalibration,
-                                   fApplyEfficiencyCalibration);
-#else
+    std::unique_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
     CP::TWirePeaks makeWireHits(fApplyDriftCalibration,
                                 fApplyEfficiencyCalibration);
-#endif
 
     // Calibrate the drift pulses.
     for (std::size_t d = 0; d < drift->size(); ++d) {
@@ -220,7 +214,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 
         CP::TDigitProxy proxy(*drift,d);
-        std::auto_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+        std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -374,7 +368,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
 
-        std::auto_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
+        std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
         if (!deconv.get()) continue;
 
 #ifdef FILL_HISTOGRAM
@@ -392,9 +386,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         double wireCharge
             = makeWireHits(*driftHits,*calib,*deconv,
-                           t0,
-                           fDeconvolution->GetBaselineSigma(),
-                           fDeconvolution->GetSampleSigma());
+                           t0,fDeconvolution);
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
