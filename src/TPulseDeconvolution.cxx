@@ -274,9 +274,15 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     }
     std::vector<double> diff;
     diff.resize(deconv->GetSampleCount());
+    bool bipolar = channelCalib.IsBipolarSignal(deconv->GetChannelId());
     for (int step=1; step<50; ++step) {
         for (int i=0; i<diff.size()-step; ++i) {
-            diff[i] = std::abs(integral[i+step]-integral[i]);
+            double v = integral[i+step]-integral[i];
+            if (bipolar) {
+                double q = 0.5*(deconv->GetSample(i+step)-deconv->GetSample(i));
+                v = v - step*q;
+            }
+            diff[i] = std::abs(v);
         }
         std::sort(diff.begin(), diff.end()-step);
         fSampleSigma[step] = diff[0.68*diff.size()];

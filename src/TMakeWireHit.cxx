@@ -39,11 +39,13 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     double charge = 0.0;
     double sample = 0.0;
     double sampleSquared = 0.0;
-    double samples = 1.0;
+    int samples = 1;
 
     /// Protect against out of bounds problems.
     if (digit.GetSampleCount() <= endIndex) endIndex = digit.GetSampleCount()-1;
     if (endIndex < beginIndex) return CP::THandle<THit>();
+
+    TChannelCalib calib;
     
     // Find the start and stop time.
     double startTime = beginIndex*step + digit.GetFirstSample();
@@ -157,9 +159,6 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // introduced by the gaussian fluctuations of the electronics (including
     // shot noise).
     double sig = pulseDeconvolution->GetSampleSigma()*std::sqrt(samples);
-    double sigC = pulseDeconvolution->GetSampleSigma(samples);
-    
-    chargeUnc += sigC*sigC;
 
     // Channels that have had baseline subtraction, will have a positive
     // baslineSigma (this only affects the induction planes).  In this case
@@ -172,28 +171,27 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // sample sigma.  This should be calculated separately, but since the
     // wander is from the same physics as the sample sigma, it should be a
     // good approximation.
-    double sigB = 0.0;
-    if (pulseDeconvolution->GetBaselineSigma() > 0) {
-        sigB = sigC/4.0;
-        chargeUnc += sigB*sigB - sigC*sigC;
+    int sigmaBins = samples;
+    if (calib.IsBipolarSignal(digit.GetChannelId())) {
+        sigmaBins = 2*rms/step+1;
+        sigmaBins = std::min(samples,sigmaBins);
     }
-
-    if (chargeUnc < 0.0) chargeUnc = sigC*sigC;
+    double sigC = pulseDeconvolution->GetSampleSigma(sigmaBins);
+    chargeUnc += sigC*sigC;
     
     // Now take the sqrt of the variance to get the uncertainty.
     chargeUnc = std::sqrt(chargeUnc);
 
     CaptNamedInfo("TMakeWireHit", digit.GetChannelId() << " Sigma " << charge
                   << " " << samples
-                  << " " << pulseDeconvolution->GetSampleSigma()
+                  << " " << sigmaBins
                   << " " << sig
                   << " " << sigC
-                  << " " << sigB
                   << " " << chargeUnc);
     
     CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
-
+    
     if (!geomId.IsValid()) return CP::THandle<CP::THit>();
 
     if (!std::isfinite(rms) || rms <= 0.0) {
@@ -214,8 +212,6 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
                   << " is not positive and finite " << samples);
         chargeUnc = 1*unit::coulomb;
     }
-
-    TChannelCalib calib;
 
     // Correct for the wire collection efficiency.  Before this correction,
     // the wire is calibrated in terms of the charged collected (or induced)
