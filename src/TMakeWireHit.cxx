@@ -155,39 +155,24 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // uncertainty is in the number of electrons (Poisson distributed).
     double chargeUnc = charge/unit::eplus;
 
-    // Add uncertainty for the sample to sample RMS.  These are fluctuations
-    // introduced by the gaussian fluctuations of the electronics (including
-    // shot noise).
-    double sig = pulseDeconvolution->GetSampleSigma()*std::sqrt(samples);
-
-    // Channels that have had baseline subtraction, will have a positive
-    // baslineSigma (this only affects the induction planes).  In this case
-    // add a correlated uncertainty for the "wandering of the baseline".  This
-    // is analogous to the deviation of the track from a "bestfit" straight
-    // line (the s_plane parameter in the PDG notation).  The RMS is
-    // correlated between all the channels, but is uncorrelated with the other
-    // uncertainties (number of electrons, and electronics noise).  The
-    // uncertainty for the "baseline wander" is approximated as the
-    // sample sigma.  This should be calculated separately, but since the
-    // wander is from the same physics as the sample sigma, it should be a
-    // good approximation.
-    int sigmaBins = samples;
-    if (calib.IsBipolarSignal(digit.GetChannelId())) {
-        sigmaBins = 2*rms/step+1;
-        sigmaBins = std::min(samples,sigmaBins);
-    }
-    double sigC = pulseDeconvolution->GetSampleSigma(sigmaBins);
+    // Add the RMS for the sample to sample correlations.  This is analogous
+    // to the deviation of the baseline from a "bestfit" straight line (the
+    // s_plane parameter in the PDG notation).  The correlations are
+    // introduced by the electronics shaping and the amount of correlation
+    // depends on the number of samples being integrated over.  The RMS as a
+    // function of the number of samples being integrated over is calculated
+    // in TPulseDeconvolution which takes into account whether this is a
+    // collection or induction plane.
+    double sigC = pulseDeconvolution->GetSampleSigma(samples);
     chargeUnc += sigC*sigC;
     
     // Now take the sqrt of the variance to get the uncertainty.
     chargeUnc = std::sqrt(chargeUnc);
 
-    CaptNamedInfo("TMakeWireHit", digit.GetChannelId() << " Sigma " << charge
-                  << " " << samples
-                  << " " << sigmaBins
-                  << " " << sig
-                  << " " << sigC
-                  << " " << chargeUnc);
+    CaptNamedInfo("TMakeWireHit", digit.GetChannelId() << " Q: " << charge
+                  << " Samples: " << samples
+                  << " Sigma: " << chargeUnc
+                  << " (" << sigC << ")");
     
     CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());

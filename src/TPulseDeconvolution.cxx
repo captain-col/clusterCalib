@@ -279,7 +279,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
         for (int i=0; i<diff.size()-step; ++i) {
             double v = integral[i+step]-integral[i];
             if (bipolar) {
-                double q = 0.5*(deconv->GetSample(i+step)-deconv->GetSample(i));
+                double q = 0.5*(deconv->GetSample(i+step)+deconv->GetSample(i));
                 v = v - step*q;
             }
             diff[i] = std::abs(v);
