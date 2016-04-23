@@ -54,7 +54,7 @@ CP::TPulseDeconvolution::TPulseDeconvolution(int sampleCount) {
         "clusterCalib.deconvolution.spikePower");
     fNoiseFilter = new CP::TNoiseFilter(noisePower, spikePower);
     fBaselineSigma = 0.0;
-    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
+    for (int i=0; i<kMaxSampleSigmas; ++i) fSampleSigma[i] = 0.0;
     Initialize();
 }
 
@@ -88,14 +88,14 @@ void CP::TPulseDeconvolution::Initialize() {
     fWireResponse = new CP::TWireResponse(nSize);
 
     fBaselineSigma = 0.0;
-    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
+    for (int i=0; i<kMaxSampleSigmas; ++i) fSampleSigma[i] = 0.0;
 }
 
 CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator() 
     (const CP::TCalibPulseDigit& calib) {
 
     fBaselineSigma = 0.0;
-    for (int i=0; i<50; ++i) fSampleSigma[i] = 0.0;
+    for (int i=0; i<kMaxSampleSigmas; ++i) fSampleSigma[i] = 0.0;
     
     CP::TEvent* ev = CP::TEventFolder::GetCurrentEvent();
     TChannelCalib channelCalib;
@@ -275,7 +275,7 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
     std::vector<double> diff;
     diff.resize(deconv->GetSampleCount());
     bool bipolar = channelCalib.IsBipolarSignal(deconv->GetChannelId());
-    for (int step=1; step<50; ++step) {
+    for (int step=1; step<kMaxSampleSigmas; ++step) {
         for (int i=0; i<diff.size()-step; ++i) {
             double v = integral[i+step]-integral[i];
             if (bipolar) {

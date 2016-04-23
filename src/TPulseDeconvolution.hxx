@@ -22,6 +22,8 @@ class TVirtualFFT;
 /// electron lifetime.  The caller owns the resulting
 /// CP::TCalibPulseDigit pointer and is responsible for deleting it.
 class CP::TPulseDeconvolution {
+    static const int kMaxSampleSigmas = 50;
+    
 public:
     explicit TPulseDeconvolution(int sampleCount);
     virtual ~TPulseDeconvolution();
@@ -41,8 +43,9 @@ public:
     /// uncertainty between samples.
     double GetSampleSigma(int i=0) const {
         if (i<1) return fSampleSigma[0];
-        if (i<50) return fSampleSigma[i];
-        return fSampleSigma[49];
+        if (i<kMaxSampleSigmas) return fSampleSigma[i];
+        // Scale the uncertainty beyond 50 channels.
+        return 1.0*i*fSampleSigma[kMaxSampleSigmas-1]/(kMaxSampleSigmas-1);
     }
 
 private:
@@ -143,6 +146,6 @@ private:
     double fBaselineSigma;
     
     /// The sample to sample sigma.
-    double fSampleSigma[50];
+    double fSampleSigma[kMaxSampleSigmas];
 };
 #endif
