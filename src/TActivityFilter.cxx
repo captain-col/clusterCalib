@@ -4,6 +4,7 @@
 #include <TPulseDigit.hxx>
 #include <TCalibPulseDigit.hxx>
 #include <TChannelInfo.hxx>
+#include <TChannelCalib.hxx>
 
 #include <TRuntimeParameters.hxx>
 #include <CaptGeomId.hxx>
@@ -51,9 +52,9 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
     if (!drift) return false;
 
     std::vector<double> work;
-    
-    std::vector< std::pair<double,double> > xWireHits;
-    
+    std::vector< std::pair<double,double> > collectionWireHits;
+
+    CP::TChannelCalib calib;
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* digit
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -62,11 +63,16 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
             continue;
         }
 
-        // Check that we have an X wire;
         CP::TChannelId cid = digit->GetChannelId();
-        CP::TGeometryId geometryId = CP::TChannelInfo::Get().GetGeometry(cid);
-        if (!CP::GeomId::Captain::IsXWire(geometryId)) continue;
+
+        // Check if this is a bad channel.
+        if (!calib.IsGoodChannel(cid)) continue;
         
+        // Check that we have a collection wire;
+        CP::TGeometryId geometryId = CP::TChannelInfo::Get().GetGeometry(cid);
+        if (!CP::GeomId::Captain::IsWire(geometryId)) continue;
+        if (calib.IsBipolarSignal(cid)) continue;
+
         if (work.size() != digit->GetSampleCount()) {
             work.resize(digit->GetSampleCount());
         }
@@ -121,6 +127,8 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
 
         // Check if there is activity on this channel.  This ignores the very
         // beginning and very end of the time window.
+        std::pair<double,double> candidatePair(-1,0);
+        double candidatePeak = 0.0;
         for (std::size_t i=0.05*digit->GetSampleCount();
              i < 0.95*digit->GetSampleCount(); ++i) {
             double signal = digit->GetSample(i)-pedestal;
@@ -136,23 +144,50 @@ bool CP::TActivityFilter::operator() (CP::TEvent& event) {
                 && fMinimumSignal <= signal) {
                 double x = 3.0*CP::GeomId::Captain::GetWireNumber(geometryId);
                 double z = 1.6*0.5*i; // 1.6 mm/us * 0.5 us/sample * samples
-                xWireHits.push_back(std::make_pair(x,z));
+                if (candidatePair.first < 0) {
+                    candidatePair = std::make_pair(x,z);
+                    candidatePeak = signal;
+                    continue;
+                }
+                if (std::abs(candidatePair.first-x) > 1) {
+                    collectionWireHits.push_back(candidatePair);
+                    candidatePair = std::make_pair(x,z);
+                    candidatePeak = signal;
+                    continue;
+                }
+                if (std::abs(candidatePair.second-z) > 10) {
+                    collectionWireHits.push_back(candidatePair);
+                    candidatePair = std::make_pair(x,z);
+                    candidatePeak = signal;
+                    continue;
+                }
+                if (candidatePeak < signal) {
+                    candidatePair = std::make_pair(x,z);
+                    candidatePeak = signal;
+                }
             }
+        }
+        if (candidatePair.first >= 0) {
+            collectionWireHits.push_back(candidatePair);
         }
     }
 
-    CaptLog("Filter with " << xWireHits.size() << " hits");
-    if (xWireHits.size() > (std::size_t) fMaximumAllowedHits) return false;
+    CaptLog("Filter with " << collectionWireHits.size() << " hits");
+    if (collectionWireHits.size() > (std::size_t) fMaximumAllowedHits) {
+        return false;
+    }
 
     // Form a cluster requiring two neighbors, and that the hits be in
-    // adjacent wires (wire spacing is 3mm).
-    HitCluster hitCluster(2,5.5);
-    hitCluster.Cluster(xWireHits.begin(), xWireHits.end());
+    // nearby wires (wire spacing is 3mm).
+    HitCluster hitCluster(2,8.5);
+    hitCluster.Cluster(collectionWireHits.begin(), collectionWireHits.end());
     CaptLog("Clusters found " << hitCluster.GetClusterCount());
     if (hitCluster.GetClusterCount() < 1) return false;
     
     CaptLog("Size of biggest cluster " << hitCluster.GetCluster(0).size());
-    if (hitCluster.GetCluster(0).size()<(std::size_t)fRequiredHits) return false;
+    if (hitCluster.GetCluster(0).size()<(std::size_t)fRequiredHits) {
+        return false;
+    }
 
     return true;
 }
