@@ -452,5 +452,23 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         hits.push_back(newHit);
     }
 
+#ifdef  CHECK_FOR_OVERLAPPED_HITS
+    for (CP::THitSelection::iterator h = hits.begin(); h != hits.end(); ++h) {
+        for (CP::THitSelection::iterator i = h+1; i != hits.end(); ++i) {
+            // The hits aren't the same channel, so they can't overlap.
+            if ((*i)->GetChannelId() != (*h)->GetChannelId()) continue;
+            // "i" starts after "h" ends, so they can't overlap.
+            if ((*i)->GetTimeStart() >= (*h)->GetTimeStop()) continue;
+            // "i" ends before "h" begins, so they can't overlap.
+            if ((*i)->GetTimeStop() <= (*h)->GetTimeStart()) continue;
+            CaptError("Overlapping hit on " << (*h)->GetChannelId());
+            CaptError("   hit " << (*h)->GetTimeStart()
+                      << " " << (*h)->GetTimeStop());
+            CaptError("   hit " << (*i)->GetTimeStart()
+                      << " " << (*i)->GetTimeStop());
+        }
+    }
+#endif
+
     return wireCharge;
 }
