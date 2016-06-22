@@ -6,7 +6,9 @@
 #  current directory.
 
 usage () {
-    echo ${0} '<tpc-data-filey>'
+    echo ${0} '<tpc-ubdaq-file>' '[type]' '[trigger]' 
+    echo '    [type]    : nb -- neutron, cos -- cosmic, lsr -- laser'
+    echo '    [trigger] : pulser, pds '
     exit 1
 }
 
@@ -17,6 +19,18 @@ else
     usage
 fi
 
+RUN_TYPE="cos"
+if [ ${#1} != 0 ]; then
+    RUN_TYPE=${1}
+    shift
+fi
+
+TRIGGER_TYPE="pulser"
+if [ ${#1} != 0 ]; then
+    TRIGGER_TYPE=${1}
+    shift
+fi
+
 if [ ! -f ${TPC_DATA} ]; then
     echo '"'${TPC_DATA}'"' does not exist.
     echo File not found.
@@ -24,16 +38,18 @@ if [ ! -f ${TPC_DATA} ]; then
 fi
 
 RUN_NUMBER=$(echo ${TPC_DATA} | sed 's/.*mCAPTAIN_EXT-\([0-9]\{1,\}\)-.*/\1/')
-echo ${RUN_NUMBER}
-echo ${TPC_DATA}
+echo Input File: ${TPC_DATA}
+echo Run Number: ${RUN_NUMBER}
+echo Run Type: ${RUN_TYPE}
+echo Trigger Type: ${TRIGGER_TYPE}
 
 # setup the environment.  This assumes that the script is running in an
 # initialized package.
 source captain-control.bash
 
-captain-experiment nb      # This is the neutron beam running.
-captain-data-source mcapt  # using miniCAPTAIN
-captain-run-type spl       # with a spill trigger
+captain-experiment ${RUN_TYPE} 
+captain-data-source mcapt              # using miniCAPTAIN
+captain-run-type ${TRIGGER_TYPE}       # with a spill trigger
 captain-run-number ${RUN_NUMBER}
 captain-run-calibration ${TPC_DATA} -tubdaq -G miniCAPTAIN ${*}
 
