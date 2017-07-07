@@ -32,6 +32,7 @@ public:
         fPowerHist = NULL;
         fExtremaHist = NULL;
 	fCountPeaksHist = NULL;
+        fMaxFFTHist = NULL;
         fChanFFTHist = NULL;
         fWireFFTHist = NULL;
         fASICFFTHist = NULL;
@@ -123,6 +124,12 @@ public:
         fMaxCorrASICHist->Draw();
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-maxCorrASICHist.png").c_str());
+
+        fMaxFFTHist->Draw();
+        gPad->SetLogy(true);
+        gPad->Print((fPrintFile+".pdf").c_str());
+        gPad->Print((fPrintFile+"-maxFFTHist.png").c_str());
+        gPad->SetLogy(false);
 
         fChanFFTHist->Draw("colz");
         gPad->Print((fPrintFile+".pdf").c_str());
@@ -354,12 +361,26 @@ public:
                 CaptLog("Frequency bin size: " << deltaFreq);
                 fFFT = TVirtualFFT::FFT(1, &nSize, "R2C M K");
                 fSampleCount = nSize;
+                int overSample = 20;
+                
+                fMaxFFTHist = new TH1F("maxFFTHist",
+                                        (titlePrefix.str() 
+                                         + "Max FFT power vs Frequency"
+                                         + " in any channel").c_str(),
+                                       (nSize/2-1)/overSample,
+                                       deltaFreq, nyquistFreq);
+                fMaxFFTHist->SetXTitle("Frequency (Hz)");
+                fMaxFFTHist->SetYTitle(
+                    "FFT Power (#frac{ADC^{2}}{#Delta#it{f}})");
+                fMaxFFTHist->SetStats(false);
+                
                 fChanFFTHist = new TH2F("chanFFTHist",
                                         (titlePrefix.str() 
                                          + "Max FFT power in window"
                                          + " for channels").c_str(),
                                         drift->size(), 0.0, drift->size(),
-                                        (nSize/2-1)/20, deltaFreq, nyquistFreq);
+                                        (nSize/2-1)/overSample,
+                                        deltaFreq, nyquistFreq);
                 fChanFFTHist->SetXTitle("Channel");
                 fChanFFTHist->SetYTitle("Frequency (Hz)");
                 fChanFFTHist->GetXaxis()->SetNdivisions(drift->size()/64,false);
@@ -370,7 +391,8 @@ public:
                                 + "Max FFT power in window"
                                 + " for wires").c_str(),
                                maxWire, 1.0, maxWire+1,
-                               (nSize/2-1)/20, deltaFreq, nyquistFreq);
+                               (nSize/2-1)/overSample,
+                               deltaFreq, nyquistFreq);
                 fWireFFTHist->SetXTitle("Wire");
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
                 fWireFFTHist->SetStats(false);
@@ -379,7 +401,8 @@ public:
                                          + "Max FFT power in window"
                                          + " for asics").c_str(),
                                         maxASIC, 0.0, maxASIC,
-                                        (nSize/2-1)/20, deltaFreq, nyquistFreq);
+                                        (nSize/2-1)/overSample,
+                                        deltaFreq, nyquistFreq);
                 fASICFFTHist->SetXTitle("ASIC");
                 fASICFFTHist->SetYTitle("Frequency (Hz)");
                 fASICFFTHist->GetXaxis()->SetNdivisions(6 + 12*100,false);
@@ -490,7 +513,7 @@ public:
                 // its values used for the scale of the 2D histos
 		if (p>0.01/nSize) powerRange.push_back(p);
                 else p = 0.01/nSize;
-                
+
 		// Fill 2D histograms.  Be careful with the "Y" binning
                 int b = 1+2*fChanFFTHist->GetNbinsY()*i/nSize;
 		double m = fChanFFTHist->GetBinContent(d+1,b);
@@ -537,6 +560,23 @@ public:
         fASICFFTHist->SetMinimum(minPower);
         fASICFFTHist->SetMaximum(maxPower);
 
+        // Fill the "maximum" power vs frequency bin.  This is calculated from
+        // the fChanFFTHist which has the maximum power in each frequency bin
+        // for each channel.  Notice that this isn't the absolute maximum
+        // since it throws out the top few outlying channels for each
+        // frequency bin.
+        for (int f1=1; f1<=fChanFFTHist->GetNbinsY(); ++f1) {
+            // Loop over the channels.
+            std::vector<double> cPower(fChanFFTHist->GetNbinsX());
+            cPower.clear();
+            for (int c1=1; c1<=fChanFFTHist->GetNbinsX(); ++c1) {
+                cPower.push_back(fChanFFTHist->GetBinContent(c1,f1));
+            }
+            if (cPower.empty()) continue;
+            std::sort(cPower.begin(), cPower.end());
+            fMaxFFTHist->SetBinContent(f1,cPower[0.95*cPower.size()]);
+        }
+        
         // Calculate the correlations.
         for (std::size_t d1 = 0; d1 < drift->size(); ++d1) {
             const CP::TPulseDigit* pulse1
@@ -625,6 +665,10 @@ private:
     /// Hardcoded as above 0.5 for now
     TH1F* fCountPeaksHist;
 
+    /// The maximum power at each frequency.  This is the max for all channels
+    /// and can be used to pick out the important frequencies.
+    TH1F* fMaxFFTHist;
+    
     /// The FFT for all wires in an event.
     TH2F* fChanFFTHist;
     TH2F* fWireFFTHist;
