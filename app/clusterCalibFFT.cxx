@@ -49,6 +49,8 @@ public:
     virtual ~TCalibHistsLoop() {};
 
     void Usage(void) {
+        std::cout << "   -O draw=<base-name> Output histograms to pdf file."
+                  << std::endl;
     }
 
     void Initialize() {
