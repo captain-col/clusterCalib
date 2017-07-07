@@ -215,7 +215,7 @@ public:
                                     (titlePrefix.str() +
                                      "FFT samples great than 0.5").c_str(),
                                     maxWire, 1, maxWire+1);
-            fCountPeaksHist->SetXTitle("Wire Number");
+            fCountPeaksHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
             fCountPeaksHist->SetYTitle("Number of Events");
 	    fCountPeaksHist->SetStats(false);
         }
@@ -280,15 +280,15 @@ public:
             fCorrWireHist->SetStats(false);
             fCorrWireHist->SetMinimum(-1);
             fCorrWireHist->SetMaximum(1);
-            fCorrWireHist->SetXTitle("Wire");
-            fCorrWireHist->SetYTitle("Wire");
+            fCorrWireHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
+            fCorrWireHist->SetYTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
 
             fMaxCorrWireHist
                 = new TH1F("maxCorrWireHist",
                            (titlePrefix.str() +
                             + "Max correlation for all wires").c_str(),
                            maxWire, 1.0, maxWire+1);
-            fMaxCorrWireHist->SetXTitle("Wire");
+            fMaxCorrWireHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
             fMaxCorrWireHist->SetYTitle("Max Correlation Coefficient");
             fMaxCorrWireHist->SetStats(false);
         }
@@ -299,7 +299,7 @@ public:
                                       + "RMS peak height (top quintile)"
                                       + " on each wire").c_str(),
                                      maxWire, 1, maxWire+1);
-            fPeakWireHist->SetXTitle("Wire Number");
+            fPeakWireHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
             fPeakWireHist->SetYTitle("|ADC|");
             fPeakWireHist->SetStats(false);
         }
@@ -393,7 +393,7 @@ public:
                                maxWire, 1.0, maxWire+1,
                                (nSize/2-1)/overSample,
                                deltaFreq, nyquistFreq);
-                fWireFFTHist->SetXTitle("Wire");
+                fWireFFTHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
                 fWireFFTHist->SetYTitle("Frequency (Hz)");
                 fWireFFTHist->SetStats(false);
                 fASICFFTHist = new TH2F("asicFFTHist",
@@ -482,7 +482,7 @@ public:
             histBaseName << chanName;
 
             std::ostringstream histBaseTitle;
-            if (0 <= wire) histBaseTitle << "wire " << wire << " ";
+            if (0 <= wire) histBaseTitle << "wire number " << wire << " ";
             histBaseTitle << chanName;
             
             TH1F* fftHist 
