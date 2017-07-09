@@ -211,7 +211,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     CP::TWirePeaks makeWireHits(fApplyDriftCalibration,
                                 fApplyEfficiencyCalibration);
 
-    // Calibrate the drift pulses.
+    // Calibrate the drift pulses.  This loop should only apply the
+    // calibration, and fill a bunch of histograms.
     for (std::size_t d = 0; d < drift->size(); ++d) {
         const CP::TPulseDigit* pulse
             = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
@@ -396,13 +397,17 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         // temporary).
         driftCalib->push_back(calib.release());
     }
-
-    // Loop over all of the calibrated pulse digits and deconvolve.
+    
+    // Loop over all of the calibrated pulse digits and deconvolve.  The
+    // deconvolution is going to apply a Weiner filter.
     for (std::size_t d = 0; d < driftCalib->size(); ++d) {
         const CP::TCalibPulseDigit* calib
             = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d]);
         std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
         if (!deconv.get()) continue;
+        if (d%100 == 0) {
+            CaptLog("Deconvolve " << calib->GetChannelId().AsString());
+        }
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
