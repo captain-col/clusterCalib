@@ -168,12 +168,19 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     ///////////////////////////////////////////////////////////////////////
 
     // Check to see if the deconvoluted digits are going to be saved.  If they
-    // are, then create the container to hold them.
+    // are, then create a permanent container to hold them.  Otherwise, the
+    // container is temporary.
     if (fSaveCalibratedPulses) {
         CP::THandle<CP::TDataVector> dv
             = event.Get<CP::TDataVector>("~/digits");
         CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
         dv->AddDatum(dg);
+    }
+    else {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
+        dv->AddTemporary(dg);
     }
 
     CP::THandle<CP::TDigitContainer> drift
