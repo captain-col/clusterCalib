@@ -167,8 +167,27 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     /// Drift Calibration
     ///////////////////////////////////////////////////////////////////////
 
-    // Check to see if the deconvoluted digits are going to be saved.  If they
-    // are, then create a permanent container to hold them.  Otherwise, the
+    CP::THandle<CP::TDigitContainer> drift
+        = event.Get<CP::TDigitContainer>("~/digits/drift");
+    if (!drift) {
+        CaptLog("No drift signals for this event " << event.GetContext());
+        return false;
+    }
+
+    // Create a container for the calibrated, but not deconvoluted
+    // TCalibPulseDigits.
+    {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-calib");
+        dv->AddTemporary(dg);
+    }
+    CP::THandle<CP::TDigitContainer> driftCalib
+        = event.Get<CP::TDigitContainer>("~/digits/drift-calib");
+    
+    // Create a container for the deconvoluted TCalibPulseDigits and check to
+    // see if the deconvoluted digits are going to be saved.  If they are,
+    // then create a permanent container to hold them.  Otherwise, the
     // container is temporary.
     if (fSaveCalibratedPulses) {
         CP::THandle<CP::TDataVector> dv
@@ -182,15 +201,13 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
         dv->AddTemporary(dg);
     }
+    CP::THandle<CP::TDigitContainer> driftDeconv
+        = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
 
-    CP::THandle<CP::TDigitContainer> drift
-        = event.Get<CP::TDigitContainer>("~/digits/drift");
-    if (!drift) {
-        CaptLog("No drift signals for this event " << event.GetContext());
-        return false;
-    }
+    // Create a hit selection for hits that are found.
+    std::unique_ptr<CP::THitSelection> driftHits(
+        new CP::THitSelection("drift"));
 
-    std::unique_ptr<CP::THitSelection> driftHits(new CP::THitSelection("drift"));
     CP::TWirePeaks makeWireHits(fApplyDriftCalibration,
                                 fApplyEfficiencyCalibration);
 
@@ -222,6 +239,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TDigitProxy proxy(*drift,d);
         std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+        if (!calib.get()) continue;
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -374,7 +392,15 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             hist->Fill(fCalibrate->GetGaussianSigma());
         }
 #endif
+        // Add the calibrated digits to the event (remember, they are probably
+        // temporary).
+        driftCalib->push_back(calib.release());
+    }
 
+    // Loop over all of the calibrated pulse digits and deconvolve.
+    for (std::size_t d = 0; d < driftCalib->size(); ++d) {
+        const CP::TCalibPulseDigit* calib
+            = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d]);
         std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
         if (!deconv.get()) continue;
 
@@ -472,11 +498,9 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         }
 #endif
 
-        // Check to see if the drift-deconv digit container exists.  If it does
-        // exist, then it will be filled with the deconvoluted digits.
-        CP::THandle<CP::TDigitContainer> driftDeconv
-            = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
-        if (driftDeconv) driftDeconv->push_back(deconv.release());
+        // Add the deconvoluted digits to the event (remember, they might be
+        // temporary).
+        driftDeconv->push_back(deconv.release());
     }
 
 #define STANDARD_HISTOGRAM
