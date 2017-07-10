@@ -53,6 +53,7 @@ CP::TClusterCalib::TClusterCalib() {
     fSaveCalibratedPulses = false;
     fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
+    fRemoveCorrelatedPedestal = false;
 }
 
 CP::TClusterCalib::~TClusterCalib() {}
@@ -398,127 +399,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         driftCalib->push_back(calib.release());
     }
 
-/////////////////////////////////////////////////////////////////////////
-// The next section of code removes baseline fluctuations shared by all of the
-// channels.  It calculating the correlations, and then adjusting the
-// averaging pedestals for all channels, so it's really slow.
-#define REMOVE_CORRELATIONS
-#ifdef REMOVE_CORRELATIONS
-    // Find the RMS for each wire.  The pedestal is already removed so the
-    // expected (mean) value is zero.
-    std::vector<double> sigmas(driftCalib->size());
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        CP::TCalibPulseDigit* calib1
-            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        double sigma = 0.0;
-        for (std::size_t i=0; i<(std::size_t) calib1->GetSampleCount(); ++i) {
-            double p = calib1->GetSample(i);
-            sigma += p*p;
-        }
-        sigma /= calib1->GetSampleCount();
-        sigmas[d1] = std::sqrt(sigma);
-    }
-
-    // Fill a "2d" array of wire to wire correlations.  The array indexing is
-    // done by hand so I can use a vector. 
-    std::vector<double> correlations(driftCalib->size()*driftCalib->size());
-    std::size_t pulseSamples = 0;
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        if (sigmas[d1]<1.0) continue;
-        CP::TCalibPulseDigit* calib1
-            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        if (d1%100 == 0) {
-            CaptLog("Find Correlations " << calib1->GetChannelId().AsString());
-        }
-        pulseSamples = std::max(pulseSamples,calib1->GetSampleCount());
-        for (std::size_t d2 = d1+1; d2 < driftCalib->size(); ++d2) {
-            if (sigmas[d2]<1.0) continue;
-            if (d1 == d2) continue;
-            CP::TCalibPulseDigit* calib2
-                = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d2]);
-            double corr12 = 0.0;
-            for (std::size_t i=0; i<calib2->GetSampleCount(); ++i) {
-                double p1 = calib1->GetSample(i);
-                double p2 = calib2->GetSample(i);
-                corr12 += p1*p2;
-            }
-            corr12 /= calib2->GetSampleCount();
-            corr12 /= (sigmas[d1]*sigmas[d2]);
-            correlations[d1*driftCalib->size()+d2] = corr12;
-            correlations[d2*driftCalib->size()+d1] = corr12;
-        }
-    }
-
-    // Find the "correlated" pedestal for each wire.  For a wire, this is the
-    // correlation weighted average of the samples in all of the other wires.
-    // This needs to be calculated separately so when the new pedestal
-    // subtraction is done, the subtraction does affect the pedestal
-    // calculation.
-    std::vector<double> pedestals(driftCalib->size()*pulseSamples);
-    std::vector<double> weights(driftCalib->size());
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        if (sigmas[d1]<1.0) continue;
-        CP::TCalibPulseDigit* calib1
-            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        if (d1%100 == 0) {
-            CaptLog("Estimate correlated pedestal "
-                    << calib1->GetChannelId().AsString());
-        }
-        int correlatedWires = 0;
-        for (std::size_t d2 = 0; d2 < driftCalib->size(); ++d2) {
-            if (sigmas[d2]<1.0) continue;
-            if (d1 == d2) continue;
-            CP::TCalibPulseDigit* calib2
-                = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d2]);
-            double w = correlations[d1*driftCalib->size()+d2];
-            w = w*w*w; // Favor channels with high correlations.
-            if (w < 0.2) continue;
-            ++correlatedWires;
-            for (std::size_t i = 0; i< calib2->GetSampleCount(); ++i) {
-                // this is going to take the average (weighted by the
-                // correlation) of the scaled baseline fluctuation.
-                double v = sigmas[d1]*calib2->GetSample(i)/sigmas[d2];
-                pedestals[d1*pulseSamples+i] += w*v;
-            }
-            weights[d1] += std::abs(w);
-        } 
-    }
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        const CP::TCalibPulseDigit* calib1
-            = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
-            if (weights[d1] < 0.1) pedestals[d1*pulseSamples+i] = 0.0;
-            else pedestals[d1*pulseSamples+i] /= weights[d1];
-        }
-    }
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        CP::TCalibPulseDigit* calib1
-            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
-            double v = calib1->GetSample(i);
-            double p = pedestals[d1*pulseSamples+i];
-            calib1->SetSample(i,v-p);
-        }
-    }
-
-#ifdef FILL_HISTOGRAM
-#undef FILL_HISTOGRAM
-        TH2F* pedestalHist
-            = new TH2F("correlatedPedestal",
-                       "Correlated Pedestals",
-                       driftCalib->size(), 0.0, driftCalib->size(),
-                       pulseSamples,0.0,pulseSamples+1.0);
-    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        CP::TCalibPulseDigit* calib1
-            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
-            double v = pedestals[d1*pulseSamples+i];
-            pedestalHist->Fill(d1,i,v);
-        }
-    }
-#endif
-
-#endif
+    if (fRemoveCorrelatedPedestal) RemoveCorrelatedPedestal(event);
     
     // Loop over all of the calibrated pulse digits and deconvolve.  The
     // deconvolution is going to apply a Weiner filter.
@@ -790,4 +671,123 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     }
 
     return true;
+}
+
+void CP::TClusterCalib::RemoveCorrelatedPedestal(CP::TEvent& event) {
+    CP::THandle<CP::TDigitContainer> driftCalib
+        = event.Get<CP::TDigitContainer>("~/digits/drift-calib");
+
+    // Find the RMS for each wire.  The pedestal is already removed so the
+    // expected (mean) value is zero.
+    std::vector<double> sigmas(driftCalib->size());
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        CP::TCalibPulseDigit* calib1
+            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        double sigma = 0.0;
+        for (std::size_t i=0; i<(std::size_t) calib1->GetSampleCount(); ++i) {
+            double p = calib1->GetSample(i);
+            sigma += p*p;
+        }
+        sigma /= calib1->GetSampleCount();
+        sigmas[d1] = std::sqrt(sigma);
+    }
+
+    // Fill a "2d" array of wire to wire correlations.  The array indexing is
+    // done by hand so I can use a vector. 
+    std::vector<double> correlations(driftCalib->size()*driftCalib->size());
+    std::size_t pulseSamples = 0;
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        if (sigmas[d1]<1.0) continue;
+        CP::TCalibPulseDigit* calib1
+            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        if (d1%100 == 0) {
+            CaptLog("Find Correlations " << calib1->GetChannelId().AsString());
+        }
+        pulseSamples = std::max(pulseSamples,calib1->GetSampleCount());
+        for (std::size_t d2 = d1+1; d2 < driftCalib->size(); ++d2) {
+            if (sigmas[d2]<1.0) continue;
+            if (d1 == d2) continue;
+            CP::TCalibPulseDigit* calib2
+                = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d2]);
+            double corr12 = 0.0;
+            for (std::size_t i=0; i<calib2->GetSampleCount(); ++i) {
+                double p1 = calib1->GetSample(i);
+                double p2 = calib2->GetSample(i);
+                corr12 += p1*p2;
+            }
+            corr12 /= calib2->GetSampleCount();
+            corr12 /= (sigmas[d1]*sigmas[d2]);
+            correlations[d1*driftCalib->size()+d2] = corr12;
+            correlations[d2*driftCalib->size()+d1] = corr12;
+        }
+    }
+
+    // Find the "correlated" pedestal for each wire.  For a wire, this is the
+    // correlation weighted average of the samples in all of the other wires.
+    // This needs to be calculated separately so when the new pedestal
+    // subtraction is done, the subtraction does affect the pedestal
+    // calculation.
+    std::vector<double> pedestals(driftCalib->size()*pulseSamples);
+    std::vector<double> weights(driftCalib->size());
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        if (sigmas[d1]<1.0) continue;
+        CP::TCalibPulseDigit* calib1
+            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        if (d1%100 == 0) {
+            CaptLog("Estimate correlated pedestal "
+                    << calib1->GetChannelId().AsString());
+        }
+        int correlatedWires = 0;
+        for (std::size_t d2 = 0; d2 < driftCalib->size(); ++d2) {
+            if (sigmas[d2]<1.0) continue;
+            if (d1 == d2) continue;
+            CP::TCalibPulseDigit* calib2
+                = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d2]);
+            double w = correlations[d1*driftCalib->size()+d2];
+            w = w*w*w; // Favor channels with high correlations.
+            if (w < 0.2) continue;
+            ++correlatedWires;
+            for (std::size_t i = 0; i< calib2->GetSampleCount(); ++i) {
+                // this is going to take the average (weighted by the
+                // correlation) of the scaled baseline fluctuation.
+                double v = sigmas[d1]*calib2->GetSample(i)/sigmas[d2];
+                pedestals[d1*pulseSamples+i] += w*v;
+            }
+            weights[d1] += std::abs(w);
+        } 
+    }
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        const CP::TCalibPulseDigit* calib1
+            = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
+            if (weights[d1] < 0.1) pedestals[d1*pulseSamples+i] = 0.0;
+            else pedestals[d1*pulseSamples+i] /= weights[d1];
+        }
+    }
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        CP::TCalibPulseDigit* calib1
+            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
+            double v = calib1->GetSample(i);
+            double p = pedestals[d1*pulseSamples+i];
+            calib1->SetSample(i,v-p);
+        }
+    }
+
+#ifdef FILL_HISTOGRAM
+#undef FILL_HISTOGRAM
+        TH2F* pedestalHist
+            = new TH2F("correlatedPedestal",
+                       "Correlated Pedestals",
+                       driftCalib->size(), 0.0, driftCalib->size(),
+                       pulseSamples,0.0,pulseSamples+1.0);
+    for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
+        CP::TCalibPulseDigit* calib1
+            = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
+            double v = pedestals[d1*pulseSamples+i];
+            pedestalHist->Fill(d1,i,v);
+        }
+    }
+#endif
 }

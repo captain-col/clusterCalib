@@ -44,7 +44,17 @@ public:
         fApplyEfficiencyCalibration = value;
     }
 
+    /// Set a flag to trigger removing the correlated pedestal.
+    void RemoveCorrelations(bool value = true) {
+        fRemoveCorrelatedPedestal = value;
+    }
 private:
+
+    /// Removes baseline fluctuations shared by channels.  It calculates the
+    /// correlations, and then uses the correlations to calculate a pedestal
+    /// based on correlated channels.  It's pretty slow.
+    void RemoveCorrelatedPedestal(CP::TEvent& event);
+
     /// The maximum pulse length (in time).  The fft (time sequence) length is
     /// the pulse length plus the response length.  The exact value isn't
     /// important as long as it is bigger, or equal to, the actual pulse
@@ -82,5 +92,9 @@ private:
     /// calibration constant.
     bool fApplyEfficiencyCalibration;
 
+    /// A flag to remove baseline fluctuations shared by channels.  It
+    /// calculates the correlations, and then uses the correlations to
+    /// calculate a pedestal based on correlated channels.  It's pretty slow.
+    bool fRemoveCorrelatedPedestal;
 };
 #endif

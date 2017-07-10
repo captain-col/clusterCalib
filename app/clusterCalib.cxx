@@ -14,6 +14,7 @@ public:
         fSavePulses = false;
         fApplyDriftCalibration = false;
         fApplyEfficiencyCalibration = true;
+        fRemoveCorrelatedPedestal = false;
     }
 
     virtual ~TClusterCalibLoop() {};
@@ -42,11 +43,21 @@ public:
                   << std::endl;
         std::cout << "   -O no-efficiency  Don't apply the efficiency"
                   << std::endl;
+        std::cout << "   -O no-correlation  No extra pedestal handling"
+                  << std::endl;
+        std::cout << "   -O correlation Remove wire to wire correlations (slow)"
+                  << std::endl;
     }
 
     virtual bool SetOption(std::string option,std::string value="") {
         if (option == "no-pulse") fSavePulses = false;
         else if (option == "pulse") fSavePulses = true;
+        else if (option.find("no-corr") != std::string::npos) {
+            fRemoveCorrelatedPedestal = false;
+        }
+        else if (option.find("corr") != std::string::npos) {
+            fRemoveCorrelatedPedestal = true;
+        }
         else if (option == "no-drift") {
             CaptLog("Do not apply the electron lifetime calibration");
             fApplyDriftCalibration = false;
@@ -95,6 +106,7 @@ public:
             fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
             fClusterCalib->ApplyEfficiencyCalibration(
                 fApplyEfficiencyCalibration);
+            fClusterCalib->RemoveCorrelations(fRemoveCorrelatedPedestal);
         }
 
         // Possibly run a filter to reject noise events using uncalibrated
@@ -121,7 +133,7 @@ private:
     bool fSavePulses;
     bool fApplyDriftCalibration;
     bool fApplyEfficiencyCalibration;
-
+    bool fRemoveCorrelatedPedestal;
 };
 
 int main(int argc, char **argv) {
