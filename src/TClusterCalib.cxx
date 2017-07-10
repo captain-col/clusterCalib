@@ -53,7 +53,7 @@ CP::TClusterCalib::TClusterCalib() {
     fSaveCalibratedPulses = false;
     fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
-    fRemoveCorrelatedPedestal = false;
+    fRemoveCorrelatedPedestal = true;
 }
 
 CP::TClusterCalib::~TClusterCalib() {}

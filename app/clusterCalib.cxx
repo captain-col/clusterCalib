@@ -14,7 +14,7 @@ public:
         fSavePulses = false;
         fApplyDriftCalibration = false;
         fApplyEfficiencyCalibration = true;
-        fRemoveCorrelatedPedestal = false;
+        fRemoveCorrelatedPedestal = true;
     }
 
     virtual ~TClusterCalibLoop() {};
@@ -35,7 +35,7 @@ public:
                   << std::endl;
         std::cout << "   -O no-pulse   Don't save the calibrated pulses"
                   << std::endl;
-        std::cout << "   -O drift      Apply the drift calibration (default)"
+        std::cout << "   -O drift      Apply the drift calibration"
                   << std::endl;
         std::cout << "   -O no-drift   Don't apply the drift calibration"
                   << std::endl;
@@ -45,7 +45,9 @@ public:
                   << std::endl;
         std::cout << "   -O no-correlation  No extra pedestal handling"
                   << std::endl;
-        std::cout << "   -O correlation Remove wire to wire correlations (slow)"
+        std::cout << "   -O correlation     "
+                  << "Remove wire to wire correlations"
+                  << " in the pedestal (slow)"
                   << std::endl;
     }
 
