@@ -36,6 +36,7 @@ public:
         fChanFFTHist = NULL;
         fWireFFTHist = NULL;
         fASICFFTHist = NULL;
+        fCorrHist = NULL;
         fCorrChanHist = NULL;
         fCorrASICHist = NULL;
         fCorrWireHist = NULL;
@@ -124,6 +125,10 @@ public:
         fMaxCorrASICHist->Draw();
         gPad->Print((fPrintFile+".pdf").c_str());
         gPad->Print((fPrintFile+"-maxCorrASICHist.png").c_str());
+
+        fCorrHist->Draw();
+        gPad->Print((fPrintFile+".pdf").c_str());
+        gPad->Print((fPrintFile+"-corrHist.png").c_str());
 
         fMaxFFTHist->Draw();
         gPad->SetLogy(true);
@@ -215,11 +220,20 @@ public:
                                     (titlePrefix.str() +
                                      "FFT samples great than 0.5").c_str(),
                                     maxWire, 1, maxWire+1);
-            fCountPeaksHist->SetXTitle("Wire Number (U: 1-332, V: 333-664, X: 665-996)");
+            fCountPeaksHist->SetXTitle("Wire Number"
+                                       " (U: 1-332, V: 333-664, X: 665-996)");
             fCountPeaksHist->SetYTitle("Number of Events");
 	    fCountPeaksHist->SetStats(false);
         }
 
+        if (!fCorrHist) {
+            fCorrHist = new TH1F("corrHist",
+                                 (titlePrefix.str() +
+                                  "Channel to Channel Correlations").c_str(),
+                                 100,0.0, 1.0);
+            fCorrHist->SetXTitle("Correlation Coefficient");
+        }
+        
         if (!fCorrChanHist) {
             fCorrChanHist = new TH2F("corrChanHist",
                                      (titlePrefix.str() +
@@ -626,6 +640,8 @@ public:
                 corr12 /= pulse2->GetSampleCount();
                 corr12 /= (sigma1*sigma2);
 
+                fCorrHist->Fill(corr12);
+                
                 fCorrChanHist->SetBinContent(d1,d2,corr12);
                 fCorrASICHist->SetBinContent(asic1,asic2,corr12);
                 fCorrWireHist->SetBinContent(wire1,wire2,corr12);
@@ -674,6 +690,9 @@ private:
     TH2F* fWireFFTHist;
     TH2F* fASICFFTHist;
 
+    /// A histogram of the channel to channel correlations.
+    TH1F* fCorrHist;
+    
     /// The correlations for all wires in an event.
     TH2F* fCorrChanHist;
 
