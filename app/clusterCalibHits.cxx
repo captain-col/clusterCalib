@@ -49,19 +49,7 @@ public:
         return false;
     }
 
-    void Finalize(CP::TRootOutput * const file) {
-        std::cout << "Finalize the run " << std::endl;
-        if (fPrintFile.size() < 1) return;
-        
-        fGeomUHits->Draw();
-        gPad->Print((fPrintFile+"-geomUHits.png").c_str());
-
-        fGeomVHits->Draw();
-        gPad->Print((fPrintFile+"-geomVHits.png").c_str());
-        
-        fGeomXHits->Draw();
-        gPad->Print((fPrintFile+"-geomXHits.png").c_str());
-    }
+    void Finalize(CP::TRootOutput * const file) {}
 
     bool operator () (CP::TEvent& event) {
         CP::THandle<CP::THitSelection> drift = event.GetHits("drift");
