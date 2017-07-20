@@ -177,7 +177,10 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
     
-    if (!geomId.IsValid()) return CP::THandle<CP::THit>();
+    if (!geomId.IsValid()) {
+        // CaptError("Making hits for an invalid geometry id");
+        // return CP::THandle<CP::THit>();
+    }
 
     if (!std::isfinite(rms) || rms <= 0.0) {
         CaptError("Time RMS for " << digit.GetChannelId()

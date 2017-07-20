@@ -190,6 +190,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     std::ostringstream histName;
     CP::TGeometryId id
         = CP::TChannelInfo::Get().GetGeometry(deconv.GetChannelId());
+
     if (CP::GeomId::Captain::IsUWire(id)) histName << "wire-u";
     if (CP::GeomId::Captain::IsVWire(id)) histName << "wire-v";
     if (CP::GeomId::Captain::IsXWire(id)) histName << "wire-x";
@@ -375,17 +376,23 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         if (CP::GeomId::Captain::IsUWire(paId)) peakAreaHeight=gPeakAreaHeightU;
         if (CP::GeomId::Captain::IsVWire(paId)) peakAreaHeight=gPeakAreaHeightV;
         if (CP::GeomId::Captain::IsXWire(paId)) peakAreaHeight=gPeakAreaHeightX;
-        peakAreaHeight->Fill(candidateHeight,charge);
+        if (peakAreaHeight) {
+            peakAreaHeight->Fill(candidateHeight,charge);
+        }
         TH2F* peakFWHMHeight = NULL;
         if (CP::GeomId::Captain::IsUWire(paId)) peakFWHMHeight=gPeakFWHMHeightU;
         if (CP::GeomId::Captain::IsVWire(paId)) peakFWHMHeight=gPeakFWHMHeightV;
         if (CP::GeomId::Captain::IsXWire(paId)) peakFWHMHeight=gPeakFWHMHeightX;
-        peakFWHMHeight->Fill(candidateHeight,fwhm/unit::microsecond);
+        if (peakFWHMHeight) {
+            peakFWHMHeight->Fill(candidateHeight,fwhm/unit::microsecond);
+        }
         TH2F* peakFWHMArea = NULL;
         if (CP::GeomId::Captain::IsUWire(paId)) peakFWHMArea=gPeakFWHMAreaU;
         if (CP::GeomId::Captain::IsVWire(paId)) peakFWHMArea=gPeakFWHMAreaV;
         if (CP::GeomId::Captain::IsXWire(paId)) peakFWHMArea=gPeakFWHMAreaX;
-        peakFWHMArea->Fill(charge,fwhm/unit::microsecond);
+        if (peakFWHMArea) {
+            peakFWHMArea->Fill(charge,fwhm/unit::microsecond);
+        }
 #endif
         // Apply a cut to the overall peak size. (The digit has had the
         // baseline remove and is in units of charge).
@@ -436,7 +443,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         last = p;
     }
 #endif
-    
+
     // Make all the hits.  
     CP::TMakeWireHit makeHit(fCorrectElectronLifetime,
                              fCorrectCollectionEfficiency);

@@ -224,6 +224,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TChannelCalib channelCalib;
         if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
+            CaptLog("Bad Channel " <<pulse->GetChannelId().AsString());
             continue;
         }
         
@@ -241,7 +242,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
 
         CP::TDigitProxy proxy(*drift,d);
         std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-        if (!calib.get()) continue;
+        if (!calib.get()) {
+            CaptError("Channel not calibrated ");
+            continue;
+        }
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -270,7 +274,6 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             calibHist->SetBinContent(i+1,calib->GetSample(i));
         }
 #endif
-
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -315,9 +318,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             case 0: hist = gClusterCalibXPedestal; break;
             case 1: hist = gClusterCalibVPedestal; break;
             case 2: hist = gClusterCalibUPedestal; break;
-            default: std::exit(1);
+            default:
+                break;
             }
-            hist->Fill(fCalibrate->GetPedestal());
+            if (hist) hist->Fill(fCalibrate->GetPedestal());
         }
 #endif
 
@@ -352,9 +356,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             case 0: hist = gClusterCalibXSigma; break;
             case 1: hist = gClusterCalibVSigma; break;
             case 2: hist = gClusterCalibUSigma; break;
-            default: std::exit(1);
+            default:
+                break;
             }
-            hist->Fill(fCalibrate->GetSigma());
+            if (hist) hist->Fill(fCalibrate->GetSigma());
         }
 #endif
 
@@ -389,11 +394,13 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             case 0: hist = gClusterCalibXGaussian; break;
             case 1: hist = gClusterCalibVGaussian; break;
             case 2: hist = gClusterCalibUGaussian; break;
-            default: std::exit(1);
+            default:
+                break;
             }
-            hist->Fill(fCalibrate->GetGaussianSigma());
+            if (hist) hist->Fill(fCalibrate->GetGaussianSigma());
         }
 #endif
+
         // Add the calibrated digits to the event (remember, they are probably
         // temporary).
         driftCalib->push_back(calib.release());
