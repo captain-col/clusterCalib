@@ -5,6 +5,7 @@
 #include <HEPUnits.hxx>
 #include <CaptGeomId.hxx>
 #include <THitSelection.hxx>
+#include <TTPCChannelId.hxx>
 
 #include <TChannelInfo.hxx>
 
@@ -75,6 +76,11 @@ public:
             fGeomXHits = new TH1F("geomXHits",
                                   "Hits on the X plane",
                                   338, 0, 338);
+            const int channels = 4096;
+            fUnconnectedHits = new TH1F("unconnectedHits",
+                                        "Hits on Unconnected Channels",
+                                        1, 0, 1);
+
             fGeomUCharge = new TH2F("geomUCharge",
                                     "Charge on the U plane",
                                     338, 0, 338,
@@ -87,6 +93,10 @@ public:
                                     "Charge on the X plane",
                                     338, 0, 338,
                                     50, 0, 50000);
+            fUnconnectedCharge = new TH2F("unconnectedCharge",
+                                          "Charge on Unconnected Channels",
+                                          1, 0, 1,
+                                          50, 0, 50000);
         }
 
         for (CP::THitSelection::iterator h = drift->begin();
@@ -112,7 +122,11 @@ public:
                 fGeomXCharge->Fill(w,q);
             }
             else {
-                CaptError("Unknown plane " << id);
+                CP::TTPCChannelId cid = (*h)->GetChannelId();
+                std::cout << cid.AsString()
+                          << std::endl;
+                fUnconnectedHits->Fill(cid.AsString().c_str(),1.0);
+                fUnconnectedCharge->Fill(cid.AsString().c_str(),q,1.0);
             }
         }
         
@@ -127,10 +141,12 @@ private:
     TH1F* fGeomUHits;
     TH1F* fGeomVHits;
     TH1F* fGeomXHits;
-
+    TH1F* fUnconnectedHits;
+    
     TH2F* fGeomUCharge;
     TH2F* fGeomVCharge;
     TH2F* fGeomXCharge;
+    TH2F* fUnconnectedCharge;
 
 };
 
