@@ -26,6 +26,12 @@ public:
         fSaveCalibratedPulses = value;
     }
 
+    /// Set a flag to calibrate all channels (even channels not attached to a
+    /// wire).  This defaults to false.
+    void CalibrateAllChannels(bool value = true) {
+        fCalibrateAllChannels = value;
+    }
+
     /// Set a flag to correct the electron drift.  If this is true, then the
     /// normal calibration is applied, but if it's false, then the drift
     /// correction is not applied and the electron lifetime can be calculated.
@@ -81,6 +87,9 @@ private:
     /// A flag that the calibrated pulse digits should be saved on the output.
     /// This is the input into the peak finding.
     bool fSaveCalibratedPulses;
+
+    /// A flag to trigger calibrate channels not attached to a wire.
+    bool fCalibrateAllChannels;
 
     /// A flag to determine if the electron lifetime calibration is applied.
     /// This is normally true, and the false value is reserved for calculating

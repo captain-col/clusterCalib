@@ -8,6 +8,7 @@
 #include <TMCChannelId.hxx>
 #include <TChannelId.hxx>
 #include <TChannelCalib.hxx>
+#include <EClusterCalib.hxx>
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>
@@ -83,7 +84,7 @@ bool CP::TWireResponse::Calculate() {
         break;
     default:
         CaptError("Unknown wire class");
-        exit(1);
+        throw CP::EClusterCalib();
     }
 
     // Calculate the FFT of the response 

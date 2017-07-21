@@ -51,6 +51,7 @@ CP::TClusterCalib::TClusterCalib() {
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
     fSaveCalibratedPulses = false;
+    fCalibrateAllChannels = false;
     fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
     fRemoveCorrelatedPedestal = true;
@@ -231,7 +232,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         CP::TGeometryId pulseGeom
             = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
 
-        if (!pulseGeom.IsValid()) {
+        if (!pulseGeom.IsValid() && !fCalibrateAllChannels) {
             continue;
         }
 
@@ -477,6 +478,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         static TH1F* gClusterCalibXBaselineSigma = NULL;
         static TH1F* gClusterCalibVBaselineSigma = NULL;
         static TH1F* gClusterCalibUBaselineSigma = NULL;
+        static TH1F* gClusterCalibCBaselineSigma = NULL;
         double minBaselineSigma = 0.0;
         double maxBaselineSigma = 20000.0;
         if (!gClusterCalibXBaselineSigma) {
@@ -497,6 +499,12 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                          "Calibrated BaselineSigma for the V wires",
                          100, minBaselineSigma, maxBaselineSigma);
         }
+        if (!gClusterCalibCBaselineSigma && fCalibrateAllChannels) {
+            gClusterCalibCBaselineSigma =
+                new TH1F("clusterCalibCBaselineSigma",
+                         "Calibrated Baseline Sigma for unconnected channels",
+                         100, minBaselineSigma, maxBaselineSigma);
+        }
         
         for (CP::THitSelection::iterator h = driftHits->begin();
              h != driftHits->end(); ++h) {
@@ -506,7 +514,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             case 0: hist = gClusterCalibXBaselineSigma; break;
             case 1: hist = gClusterCalibVBaselineSigma; break;
             case 2: hist = gClusterCalibUBaselineSigma; break;
-            default: std::exit(1);
+            default: hist = gClusterCalibCBaselineSigma; break;
             }
             double q = fDeconvolution->GetBaselineSigma();
             hist->Fill(q);
@@ -524,22 +532,29 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     static TH1F* gClusterCalibXCharge = NULL;
     static TH1F* gClusterCalibVCharge = NULL;
     static TH1F* gClusterCalibUCharge = NULL;
+    static TH1F* gClusterCalibCCharge = NULL;
     double minCharge = std::log10(4000);
     double maxCharge = std::log10(50*unit::fC);
     if (!gClusterCalibXCharge) {
         gClusterCalibXCharge = new TH1F("clusterCalibXCharge",
-                                        "Calibrated Charge for the X wires",
+                                        "Calibrated Charge for the X Wires",
                                         100, minCharge, maxCharge);
     }
     if (!gClusterCalibUCharge) {
         gClusterCalibUCharge = new TH1F("clusterCalibUCharge",
-                                        "Calibrated Charge for the U wires",
+                                        "Calibrated Charge for the U Wires",
                                         100, minCharge, maxCharge);
     }
     if (!gClusterCalibVCharge) {
         gClusterCalibVCharge = new TH1F("clusterCalibVCharge",
-                                        "Calibrated Charge for the V wires",
+                                        "Calibrated Charge for the V Wires",
                                         100, minCharge, maxCharge);
+    }
+    if (!gClusterCalibCCharge && fCalibrateAllChannels) {
+        gClusterCalibCCharge =
+            new TH1F("clusterCalibCCharge",
+                     "Calibrated Charge for Unconnected Channels",
+                     100, minCharge, maxCharge);
     }
 
     for (CP::THitSelection::iterator h = driftHits->begin();
@@ -550,7 +565,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         case 0: hist = gClusterCalibXCharge; break;
         case 1: hist = gClusterCalibVCharge; break;
         case 2: hist = gClusterCalibUCharge; break;
-        default: std::exit(1);
+        default: hist = gClusterCalibCCharge; break;
         }
         double q = std::log10((*h)->GetCharge());
         q = std::min(std::max(minCharge, q), maxCharge);
@@ -602,6 +617,8 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     double vWireUnc = 0.0;
     double uWireCharge = 0.0;
     double uWireUnc = 0.0;
+    double cWireCharge = 0.0;
+    double cWireUnc = 0.0;
     for (CP::THitSelection::iterator h = driftHits->begin();
          h != driftHits->end(); ++h) {
         TGeometryId id = (*h)->GetGeomId();
@@ -624,7 +641,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
             uWireUnc += u*u;
             break;
         }
-        default: std::exit(1);
+        default: {
+            cWireCharge += (*h)->GetCharge();
+            double u = (*h)->GetChargeUncertainty();
+            cWireUnc += u*u;
+        }
         }
     }
     xWireUnc = std::sqrt(xWireUnc);
@@ -644,6 +665,11 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
                   << "   X-U/sigma: " << xu
                   << "   V-U/sigma: " << vu);
 
+    if (fCalibrateAllChannels) {
+        CaptLog("Unconnected Channels: "
+                << unit::AsString(cWireCharge,cWireUnc,"charge"));
+    }
+    
 #define FILL_HISTOGRAM
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM

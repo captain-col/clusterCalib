@@ -13,6 +13,7 @@ public:
         fActivityFilter = NULL;
         fSavePulses = false;
         fApplyDriftCalibration = false;
+        fCalibrateAllChannels = false;
         fApplyEfficiencyCalibration = true;
         fRemoveCorrelatedPedestal = true;
     }
@@ -20,6 +21,9 @@ public:
     virtual ~TClusterCalibLoop() {};
 
     void Usage(void) {
+        std::cout << "   -O all       Calibrate all channels,"
+                  << " including disconected"
+                  << std::endl;
         std::cout << "   -O filter[=S]:h]:s:]H] Apply an event activity filter"
                   << std::endl
                   << "        S: Override number of ADC above baseline"
@@ -70,6 +74,7 @@ public:
             fApplyEfficiencyCalibration = false;
         }
         else if (option == "efficiency") fApplyEfficiencyCalibration = true;
+        else if (option == "all") fCalibrateAllChannels = true;
         else if (option == "filter") {
             fActivityFilter = new CP::TActivityFilter();
             if (value!="") {
@@ -106,6 +111,7 @@ public:
             // Set the action for the calibrated pulse digits.
             fClusterCalib->SaveCalibratedPulses(fSavePulses);
             fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
+            fClusterCalib->CalibrateAllChannels(fCalibrateAllChannels);
             fClusterCalib->ApplyEfficiencyCalibration(
                 fApplyEfficiencyCalibration);
             fClusterCalib->RemoveCorrelations(fRemoveCorrelatedPedestal);
@@ -134,6 +140,7 @@ private:
     
     bool fSavePulses;
     bool fApplyDriftCalibration;
+    bool fCalibrateAllChannels;
     bool fApplyEfficiencyCalibration;
     bool fRemoveCorrelatedPedestal;
 };
