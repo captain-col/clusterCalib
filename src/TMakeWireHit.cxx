@@ -1,5 +1,4 @@
 #include "TMakeWireHit.hxx"
-#include "TPulseDeconvolution.hxx"
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -33,7 +32,6 @@ CP::TMakeWireHit::~TMakeWireHit() { }
 CP::THandle<CP::THit>
 CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
                              double step, double t0,
-                             const CP::TPulseDeconvolution* pulseDeconvolution,
                              std::size_t beginIndex, std::size_t endIndex,
                              bool split) {
     double charge = 0.0;
@@ -155,17 +153,14 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     // uncertainty is in the number of electrons (Poisson distributed).
     double chargeUnc = charge/unit::eplus;
 
-    // Add the RMS for the sample to sample correlations.  This is analogous
+    // Add the RMS for the baseline uncertainty.  This is analogous
     // to the deviation of the baseline from a "bestfit" straight line (the
     // s_plane parameter in the PDG notation).  The correlations are
     // introduced by the electronics shaping and the amount of correlation
-    // depends on the number of samples being integrated over.  The RMS as a
-    // function of the number of samples being integrated over is calculated
-    // in TPulseDeconvolution which takes into account whether this is a
-    // collection or induction plane.
-    double sigC = pulseDeconvolution->GetSampleSigma(samples);
+    // depends on the number of samples being integrated over.
+    double sigC = 0.0;   // Not yet implemented!!!!
     chargeUnc += sigC*sigC;
-    
+
     // Now take the sqrt of the variance to get the uncertainty.
     chargeUnc = std::sqrt(chargeUnc);
 

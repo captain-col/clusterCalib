@@ -31,7 +31,6 @@ public:
     CP::THandle<CP::THit> 
     operator ()(const CP::TCalibPulseDigit& digit, 
                 double digitStep, double t0,
-                const CP::TPulseDeconvolution* pulseDeconvolution,
                 std::size_t beginIndex, std::size_t endIndex, bool split);
     
 private:

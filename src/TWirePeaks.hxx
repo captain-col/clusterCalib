@@ -26,15 +26,14 @@ public:
                         bool correctEfficiency=true);
     ~TWirePeaks();
     
-    /// Take a TCalibPulseDigit object with the calibrated charges, and the
-    /// deconvolution of the calibrated charges, to find any hits in the
-    /// pulse.  Any hits that are found are appended to output THitSelection.
-    /// This takes a hit selection of PMT hits that will be used as a hint for
-    /// the expected dispersion of the wire signals.  If the sample
-    /// uncertainty is provided, this is the uncertainty of each measurement
-    /// in the TCalibPulseDigit.  This returns the total charge on the wire.
+    /// Take a TCalibPulseDigit object with the deconvolution of the
+    /// calibrated charges, to find any hits in the pulse.  Any hits that are
+    /// found are appended to output THitSelection.  This takes a hit
+    /// selection of PMT hits that will be used as a hint for the expected
+    /// dispersion of the wire signals.  If the sample uncertainty is
+    /// provided, this is the uncertainty of each measurement in the
+    /// TCalibPulseDigit.  This returns the total charge on the wire.
     double operator () (CP::THitSelection& hits, 
-                        const CP::TCalibPulseDigit& calib,
                         const CP::TCalibPulseDigit& deconv,
                         double t0,
                         const CP::TPulseDeconvolution* pulseDeconvolution);

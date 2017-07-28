@@ -149,7 +149,6 @@ double CP::TWirePeaks::PeakFWHM(int peakIndex,
 }
 
 double CP::TWirePeaks::operator() (CP::THitSelection& hits,
-                                   const CP::TCalibPulseDigit& calib,
                                    const CP::TCalibPulseDigit& deconv,
                                    double t0,
                                    const CP::TPulseDeconvolution* pulseDeconv) {
@@ -205,83 +204,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
               << " (" << deconv.GetChannelId().AsString() << ")";
 #endif
 
-#define STANDARD_HISTOGRAM
-#ifdef STANDARD_HISTOGRAM
-#undef STANDARD_HISTOGRAM
-    static TH2F* gPeakAreaHeightU = NULL;
-    if (!gPeakAreaHeightU) {
-        gPeakAreaHeightU
-            = new TH2F("peakAreaHeightU",
-                       "Area versus height for U peaks",
-                       50, 0.0, 5000,
-                       40, 0.0, 20000);
-    }
-    static TH2F* gPeakAreaHeightV = NULL;
-    if (!gPeakAreaHeightV) {
-        gPeakAreaHeightV
-            = new TH2F("peakAreaHeightV",
-                       "Area versus height for V peaks",
-                       50, 0.0, 5000,
-                       40, 0.0, 20000);
-    }
-    static TH2F* gPeakAreaHeightX = NULL;
-    if (!gPeakAreaHeightX) {
-        gPeakAreaHeightX
-            = new TH2F("peakAreaHeightX",
-                       "Area versus height for X peaks",
-                       50, 0.0, 5000,
-                       40, 0.0, 20000);
-    }
-    static TH2F* gPeakFWHMHeightU = NULL;
-    if (!gPeakFWHMHeightU) {
-        gPeakFWHMHeightU
-            = new TH2F("peakFWHMHeightU",
-                       "FWHM versus height for U peaks",
-                       50, 0.0, 5000.0,
-                       40, 0.0, 20.0);
-    }
-    static TH2F* gPeakFWHMHeightV = NULL;
-    if (!gPeakFWHMHeightV) {
-        gPeakFWHMHeightV
-            = new TH2F("peakFWHMHeightV",
-                       "FWHM versus height for V peaks",
-                       50, 0.0, 5000.0,
-                       40, 0.0, 20.0);
-    }
-    static TH2F* gPeakFWHMHeightX = NULL;
-    if (!gPeakFWHMHeightX) {
-        gPeakFWHMHeightX
-            = new TH2F("peakFWHMHeightX",
-                       "FWHM versus height for X peaks",
-                       50, 0.0, 5000.0,
-                       40, 0.0, 20.0);
-    }
-    static TH2F* gPeakFWHMAreaU = NULL;
-    if (!gPeakFWHMAreaU) {
-        gPeakFWHMAreaU
-            = new TH2F("peakFWHMAreaU",
-                       "FWHM versus area for U peaks",
-                       40, 0.0, 20000.0,
-                       40, 0.0, 20.0);
-    }
-    static TH2F* gPeakFWHMAreaV = NULL;
-    if (!gPeakFWHMAreaV) {
-        gPeakFWHMAreaV
-            = new TH2F("peakFWHMAreaV",
-                       "FWHM versus area for V peaks",
-                       40, 0.0, 20000.0,
-                       40, 0.0, 20.0);
-    }
-    static TH2F* gPeakFWHMAreaX = NULL;
-    if (!gPeakFWHMAreaX) {
-        gPeakFWHMAreaX
-            = new TH2F("peakFWHMAreaX",
-                       "FWHM versus area for X peaks",
-                       40, 0.0, 20000.0,
-                       40, 0.0, 20.0);
-    }
-#endif
-    
     // Find the magnitude of noise for this channel.
     for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fWork[i] = std::abs(deconv.GetSample(i));
@@ -308,19 +230,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                  << "  noise: " << noise);
         // return wireCharge;
     }
-
-#define STANDARD_HISTOGRAM
-#ifdef STANDARD_HISTOGRAM
-#undef STANDARD_HISTOGRAM
-    static TH1F* gNoiseHistogram = NULL;
-    if (!gNoiseHistogram) {
-        gNoiseHistogram
-            = new TH1F("peakSearchNoise",
-                       "Peak area sigma for all wires",
-                       100, 0.0, 5000);
-    }
-    gNoiseHistogram->Fill(noise);
-#endif
 
     // Now use fWork to mask out peaks that are part of another peak.
     std::fill(&fWork[0],&fWork[deconv.GetSampleCount()], 0.0);
@@ -367,33 +276,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         }
         // Find the fwhm.
         double fwhm = digitStep*PeakFWHM(candidateIndex, extent, deconv);
-#define STANDARD_HISTOGRAM
-#ifdef STANDARD_HISTOGRAM
-#undef STANDARD_HISTOGRAM
-        TH2F* peakAreaHeight = NULL;
-        CP::TGeometryId paId
-            = CP::TChannelInfo::Get().GetGeometry(deconv.GetChannelId());
-        if (CP::GeomId::Captain::IsUWire(paId)) peakAreaHeight=gPeakAreaHeightU;
-        if (CP::GeomId::Captain::IsVWire(paId)) peakAreaHeight=gPeakAreaHeightV;
-        if (CP::GeomId::Captain::IsXWire(paId)) peakAreaHeight=gPeakAreaHeightX;
-        if (peakAreaHeight) {
-            peakAreaHeight->Fill(candidateHeight,charge);
-        }
-        TH2F* peakFWHMHeight = NULL;
-        if (CP::GeomId::Captain::IsUWire(paId)) peakFWHMHeight=gPeakFWHMHeightU;
-        if (CP::GeomId::Captain::IsVWire(paId)) peakFWHMHeight=gPeakFWHMHeightV;
-        if (CP::GeomId::Captain::IsXWire(paId)) peakFWHMHeight=gPeakFWHMHeightX;
-        if (peakFWHMHeight) {
-            peakFWHMHeight->Fill(candidateHeight,fwhm/unit::microsecond);
-        }
-        TH2F* peakFWHMArea = NULL;
-        if (CP::GeomId::Captain::IsUWire(paId)) peakFWHMArea=gPeakFWHMAreaU;
-        if (CP::GeomId::Captain::IsVWire(paId)) peakFWHMArea=gPeakFWHMAreaV;
-        if (CP::GeomId::Captain::IsXWire(paId)) peakFWHMArea=gPeakFWHMAreaX;
-        if (peakFWHMArea) {
-            peakFWHMArea->Fill(charge,fwhm/unit::microsecond);
-        }
-#endif
+
         // Apply a cut to the overall peak size. (The digit has had the
         // baseline remove and is in units of charge).
         if (candidateHeight<peakMaximumCut) {
@@ -451,7 +334,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         p != peaks.end(); ++p) {
         CP::THandle<CP::THit> newHit
             = makeHit(deconv, digitStep, t0,
-                      pulseDeconv,
                       p->first, p->second,
                       false);
         if (!newHit) continue;
