@@ -141,6 +141,8 @@ void CP::TNoiseFilter::Calculate(CP::TChannelId id,
     for (std::size_t i = 0; i<fFilter.size(); ++i) {
         double measPower = fWork[i];
         double respPower = std::abs(elecFreq.GetFrequency(i));
+        if (measPower < 1E-22) continue;
+        if (fAverage[i] < 1E-22) continue;
         // Apply filter for any spikes in the FFT.
         if (fSpikePower > 1E-3) {
             double sigPower = fAverage[i]/fSpikePower;
