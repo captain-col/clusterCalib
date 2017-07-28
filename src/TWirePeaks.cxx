@@ -1,7 +1,6 @@
 #include "TWirePeaks.hxx"
 #include "TMakeWireHit.hxx"
 #include "TChannelCalib.hxx"
-#include "TPulseDeconvolution.hxx"
 
 #include <THitSelection.hxx>
 #include <TCalibPulseDigit.hxx>
@@ -150,8 +149,7 @@ double CP::TWirePeaks::PeakFWHM(int peakIndex,
 
 double CP::TWirePeaks::operator() (CP::THitSelection& hits,
                                    const CP::TCalibPulseDigit& deconv,
-                                   double t0,
-                                   const CP::TPulseDeconvolution* pulseDeconv) {
+                                   double t0) {
     double wireCharge = 0.0;
 
     // Find the time per sample in the digit.

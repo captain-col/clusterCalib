@@ -35,8 +35,7 @@ public:
     /// TCalibPulseDigit.  This returns the total charge on the wire.
     double operator () (CP::THitSelection& hits, 
                         const CP::TCalibPulseDigit& deconv,
-                        double t0,
-                        const CP::TPulseDeconvolution* pulseDeconvolution);
+                        double t0);
 
 private:
 

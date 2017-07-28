@@ -51,6 +51,8 @@ CP::TClusterCalib::TClusterCalib() {
     fDeconvolution = new TPulseDeconvolution(fSampleCount);
 
     fSaveCalibratedPulses = false;
+    fSaveDecorrelatedPulses = false;
+    fSaveDeconvolvedPulses = false;
     fCalibrateAllChannels = false;
     fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
@@ -146,102 +148,31 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         return false;
     }
 
-    // Create a container for the calibrated, but not deconvoluted
-    // TCalibPulseDigits.
-    {
-        CP::THandle<CP::TDataVector> dv
-            = event.Get<CP::TDataVector>("~/digits");
-        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-calib");
-        dv->AddTemporary(dg);
-    }
-    CP::THandle<CP::TDigitContainer> driftCalib
-        = event.Get<CP::TDigitContainer>("~/digits/drift-calib");
-    
-    // Create a container for the deconvoluted TCalibPulseDigits and check to
-    // see if the deconvoluted digits are going to be saved.  If they are,
-    // then create a permanent container to hold them.  Otherwise, the
-    // container is temporary.
-    if (fSaveCalibratedPulses) {
-        CP::THandle<CP::TDataVector> dv
-            = event.Get<CP::TDataVector>("~/digits");
-        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
-        dv->AddDatum(dg);
-    }
-    else {
-        CP::THandle<CP::TDataVector> dv
-            = event.Get<CP::TDataVector>("~/digits");
-        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
-        dv->AddTemporary(dg);
-    }
-    CP::THandle<CP::TDigitContainer> driftDeconv
-        = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
+    CP::THandle<CP::TDigitContainer> driftCalib;
 
+    driftCalib = CalibrateChannels(event, drift);
+    
+    driftCalib = RemoveCorrelatedPedestal(event,driftCalib);
+
+    driftCalib = DeconvolveSignals(event,driftCalib);
+    
     // Create a hit selection for hits that are found.
     std::unique_ptr<CP::THitSelection> driftHits(
         new CP::THitSelection("drift"));
-
-    CP::TWirePeaks wirePeaks(fApplyDriftCalibration,
-                                fApplyEfficiencyCalibration);
-
-    // Calibrate the drift pulses.  This loop should only apply the
-    // calibration, and fill a bunch of histograms.
-    for (std::size_t d = 0; d < drift->size(); ++d) {
-        const CP::TPulseDigit* pulse
-            = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
-        if (!pulse) {
-            CaptError("Non-pulse in drift digits");
-            continue;
-        }
-
-        CP::TChannelCalib channelCalib;
-        if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
-            CaptLog("Bad Channel " <<pulse->GetChannelId().AsString());
-            continue;
-        }
-        
-        CP::TGeometryId pulseGeom
-            = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
-
-        if (!pulseGeom.IsValid() && !fCalibrateAllChannels) {
-            continue;
-        }
-
-        if (d%100 == 0) {
-            CaptLog("Calibrate " << pulse->GetChannelId().AsString()
-                     << " " << std::setw(40) << pulseGeom << std::setw(0));
-        }
-
-        CP::TDigitProxy proxy(*drift,d);
-        std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
-        if (!calib.get()) {
-            CaptError("Channel not calibrated ");
-            continue;
-        }
-
-        // Add the calibrated digits to the event (remember, they are probably
-        // temporary).
-        driftCalib->push_back(calib.release());
-    }
-
-    if (fRemoveCorrelatedPedestal) RemoveCorrelatedPedestal(event);
     
-    // Loop over all of the calibrated pulse digits and deconvolve.  The
-    // deconvolution is going to apply a Weiner filter.
+    CP::TWirePeaks wirePeaks(fApplyDriftCalibration,
+                             fApplyEfficiencyCalibration);
+
+    // Loop over all of the calibrated pulse digits and find the hits.
     for (std::size_t d = 0; d < driftCalib->size(); ++d) {
         const CP::TCalibPulseDigit* calib
             = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d]);
-        std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
-        if (!deconv.get()) continue;
         if (d%100 == 0) {
-            CaptLog("Deconvolve " << calib->GetChannelId().AsString());
+            CaptLog("Make Hits " << calib->GetChannelId().AsString());
         }
 
         // Find any peaks in the deconvoluted pulse.
-        wirePeaks(*driftHits,*deconv,t0,fDeconvolution);
-        
-        // Add the deconvoluted digits to the event (remember, they might be
-        // temporary).
-        driftDeconv->push_back(deconv.release());
+        wirePeaks(*driftHits,*calib,t0);
     }
 
     if (driftHits->size() > 0) {
@@ -254,10 +185,10 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     return true;
 }
 
-void CP::TClusterCalib::RemoveCorrelatedPedestal(CP::TEvent& event) {
-    CP::THandle<CP::TDigitContainer> driftCalib
-        = event.Get<CP::TDigitContainer>("~/digits/drift-calib");
-
+CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
+    CP::TEvent& event, CP::THandle<CP::TDigitContainer> driftCalib) {
+    if (!fRemoveCorrelatedPedestal) return driftCalib;
+    
     // Find the RMS for each wire.  The pedestal is already removed so the
     // expected (mean) value is zero.
     std::vector<double> sigmas(driftCalib->size());
@@ -339,25 +270,158 @@ void CP::TClusterCalib::RemoveCorrelatedPedestal(CP::TEvent& event) {
         } 
         if (weights[d1] > 0.0) ++correlatedWires;
     }
+    CaptLog("Wires with strong correlations: " << correlatedWires);
+
+    // Find the averaged pedestals for each wire.
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        const CP::TCalibPulseDigit* calib1
+        const CP::TCalibPulseDigit* calib
             = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
+        for (std::size_t i = 0; i< calib->GetSampleCount(); ++i) {
             if (weights[d1] < 0.1) pedestals[d1*pulseSamples+i] = 0.0;
             else pedestals[d1*pulseSamples+i] /= weights[d1];
         }
     }
-    CaptLog("Wires with strong correlations: " << correlatedWires);
+
+    // Create a handle for the current calibrated digits being worked on.
+    // This will keep track of the current stage of the calibration as it
+    // progresses.
+    if (fSaveDecorrelatedPulses) {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-correl");
+        dv->AddDatum(dg);
+    }
+    else {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-correl");
+        dv->AddTemporary(dg);
+    }
+    CP::THandle<CP::TDigitContainer> driftCorrel
+        = event.Get<CP::TDigitContainer>("~/digits/drift-correl");
 
     // Subtract the average correlated pedestal from each channel
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
-        CP::TCalibPulseDigit* calib1
+        CP::TCalibPulseDigit* calib
             = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
-        for (std::size_t i = 0; i< calib1->GetSampleCount(); ++i) {
-            double v = calib1->GetSample(i);
+        std::unique_ptr<CP::TCalibPulseDigit> correl(
+            new CP::TCalibPulseDigit(*calib));
+        for (std::size_t i = 0; i< calib->GetSampleCount(); ++i) {
+            double v = calib->GetSample(i);
             double p = pedestals[d1*pulseSamples+i];
-            calib1->SetSample(i,v-p);
+            correl->SetSample(i,v-p);
         }
+        driftCorrel->push_back(correl.release());
     }
 
+    return driftCorrel;
 }
+
+CP::THandle<CP::TDigitContainer> CP::TClusterCalib::DeconvolveSignals(
+    CP::TEvent& event, CP::THandle<CP::TDigitContainer> driftCalib) {
+
+    // Create a container for the deconvoluted TCalibPulseDigits and check to
+    // see if the deconvoluted digits are going to be saved.  If they are,
+    // then create a permanent container to hold them.  Otherwise, the
+    // container is temporary.
+    if (fSaveDeconvolvedPulses) {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
+        dv->AddDatum(dg);
+    }
+    else {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-deconv");
+        dv->AddTemporary(dg);
+    }
+    CP::THandle<CP::TDigitContainer> driftDeconv
+        = event.Get<CP::TDigitContainer>("~/digits/drift-deconv");
+
+    // Loop over all of the calibrated pulse digits and deconvolve.  The
+    // deconvolution is going to apply a Weiner filter.
+    for (std::size_t d = 0; d < driftCalib->size(); ++d) {
+        const CP::TCalibPulseDigit* calib
+            = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d]);
+        std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
+        if (!deconv.get()) continue;
+        if (d%100 == 0) {
+            CaptLog("Deconvolve " << calib->GetChannelId().AsString());
+        }
+
+        // Add the deconvoluted digits to the event (remember, they might be
+        // temporary).
+        driftDeconv->push_back(deconv.release());
+    }
+
+    return driftDeconv;
+}
+
+CP::THandle<CP::TDigitContainer> CP::TClusterCalib::CalibrateChannels(
+    CP::TEvent& event,
+    CP::THandle<CP::TDigitContainer> drift) {
+    
+    // Create a handle for the current calibrated digits being worked on.
+    // This will keep track of the current stage of the calibration as it
+    // progresses.
+    if (fSaveCalibratedPulses) {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-calib");
+        dv->AddDatum(dg);
+    }
+    else {
+        CP::THandle<CP::TDataVector> dv
+            = event.Get<CP::TDataVector>("~/digits");
+        CP::TDigitContainer* dg = new CP::TDigitContainer("drift-calib");
+        dv->AddTemporary(dg);
+    }
+    CP::THandle<CP::TDigitContainer> driftCalib
+        = event.Get<CP::TDigitContainer>("~/digits/drift-calib");
+
+    // Calibrate the drift pulses.  This loop should only apply the
+    // calibration.  The resulting calibrated digits are pointed to in the
+    // handle driftCalib.  This fills driftCalib for the first time.
+    for (std::size_t d = 0; d < drift->size(); ++d) {
+        const CP::TPulseDigit* pulse
+            = dynamic_cast<const CP::TPulseDigit*>((*drift)[d]);
+        if (!pulse) {
+            CaptError("Non-pulse in drift digits");
+            continue;
+        }
+
+        CP::TChannelCalib channelCalib;
+        if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
+            CaptLog("Bad Channel " <<pulse->GetChannelId().AsString());
+            continue;
+        }
+        
+        CP::TGeometryId pulseGeom
+            = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());
+
+        if (!pulseGeom.IsValid() && !fCalibrateAllChannels) {
+            continue;
+        }
+
+        if (d%100 == 0) {
+            CaptLog("Calibrate " << pulse->GetChannelId().AsString()
+                     << " " << std::setw(40) << pulseGeom << std::setw(0));
+        }
+
+        CP::TDigitProxy proxy(*drift,d);
+        std::unique_ptr<CP::TCalibPulseDigit> calib((*fCalibrate)(proxy));
+        if (!calib.get()) {
+            CaptError("Channel not calibrated ");
+            continue;
+        }
+
+        // Add the calibrated digits to the event (remember, they are probably
+        // temporary).
+        driftCalib->push_back(calib.release());
+    }
+
+    return driftCalib;
+}
+
+

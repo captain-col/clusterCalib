@@ -23,7 +23,20 @@ public:
 
     /// Set a flag to save the calibrated pulses.
     void SaveCalibratedPulses(bool value = true) {
+        std::cout << "Save Calibrated Pulses " << value << std::endl;
         fSaveCalibratedPulses = value;
+    }
+
+    /// Set a flag to save the decorrelated pulses.
+    void SaveDecorrelatedPulses(bool value = true) {
+        std::cout << "Save Decorrelated Pulses " << value << std::endl;
+        fSaveDecorrelatedPulses = value;
+    }
+
+    /// Set a flag to save the deconvolved pulses.
+    void SaveDeconvolvedPulses(bool value = true) {
+        std::cout << "Save Deconvolved Pulses " << value << std::endl;
+        fSaveDeconvolvedPulses = value;
     }
 
     /// Set a flag to calibrate all channels (even channels not attached to a
@@ -56,10 +69,24 @@ public:
     }
 private:
 
+    /// Apply the channel calibrations to all channels.  This takes a
+    /// container of raw digits and returns a container of calibrated digits.
+    CP::THandle<CP::TDigitContainer>
+    CalibrateChannels(CP::TEvent& event,
+                     CP::THandle<CP::TDigitContainer> drift);
+
     /// Removes baseline fluctuations shared by channels.  It calculates the
     /// correlations, and then uses the correlations to calculate a pedestal
     /// based on correlated channels.  It's pretty slow.
-    void RemoveCorrelatedPedestal(CP::TEvent& event);
+    CP::THandle<CP::TDigitContainer>
+    RemoveCorrelatedPedestal(CP::TEvent& event,
+                             CP::THandle<CP::TDigitContainer> driftCalib);
+
+    /// Applies the deconvolution to all channels.  It's pretty slow, but must
+    /// be done before the peaks are found.
+    CP::THandle<CP::TDigitContainer>
+    DeconvolveSignals(CP::TEvent& event,
+                      CP::THandle<CP::TDigitContainer> driftCalib);
 
     /// The maximum pulse length (in time).  The fft (time sequence) length is
     /// the pulse length plus the response length.  The exact value isn't
@@ -85,9 +112,16 @@ private:
     CP::TPulseDeconvolution* fDeconvolution;
 
     /// A flag that the calibrated pulse digits should be saved on the output.
-    /// This is the input into the peak finding.
     bool fSaveCalibratedPulses;
 
+    /// A flag that the calibrated pulse digits after subtracting correlated
+    /// pedestals should be saved on the output.
+    bool fSaveDecorrelatedPulses;
+    
+    /// A flag that the calibrated pulse digits after applying the
+    /// deconvolution should be saved on the output.
+    bool fSaveDeconvolvedPulses;
+    
     /// A flag to trigger calibrate channels not attached to a wire.
     bool fCalibrateAllChannels;
 

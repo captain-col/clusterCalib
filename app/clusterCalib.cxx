@@ -11,7 +11,9 @@ public:
     TClusterCalibLoop() {
         fClusterCalib = NULL;
         fActivityFilter = NULL;
-        fSavePulses = false;
+        fSaveCalib = false;
+        fSaveDecorrel = false;
+        fSaveDeconv = false;
         fApplyDriftCalibration = false;
         fCalibrateAllChannels = false;
         fApplyEfficiencyCalibration = true;
@@ -34,10 +36,14 @@ public:
                   << std::endl
                   << "        H: Override maximum allowed number of hits"
                   << std::endl;
-        std::cout << "   -O pulse      "
+        std::cout << "   -O save-pulse      "
                   << "Save the calibrated (after deconvolution) pulses"
                   << std::endl;
-        std::cout << "   -O no-pulse   Don't save the calibrated pulses"
+        std::cout << "   -O save-decorrel      "
+                  << "Save the calibrated (after decorrelation) pulses"
+                  << std::endl;
+        std::cout << "   -O save-calib      "
+                  << "Save the calibrated pulses"
                   << std::endl;
         std::cout << "   -O drift      Apply the drift calibration"
                   << std::endl;
@@ -56,12 +62,13 @@ public:
     }
 
     virtual bool SetOption(std::string option,std::string value="") {
-        if (option == "no-pulse") fSavePulses = false;
-        else if (option == "pulse") fSavePulses = true;
-        else if (option.find("no-corr") != std::string::npos) {
+        if (option == "save-calib") fSaveCalib = true;
+        else if (option == "save-decorrel") fSaveDecorrel = true;
+        else if (option == "save-deconv") fSaveDeconv = true;
+        else if (option.find("no-corr") == 0) {
             fRemoveCorrelatedPedestal = false;
         }
-        else if (option.find("corr") != std::string::npos) {
+        else if (option.find("corr") == 0) {
             fRemoveCorrelatedPedestal = true;
         }
         else if (option == "no-drift") {
@@ -109,7 +116,9 @@ public:
         if (!fClusterCalib) {
             fClusterCalib = new CP::TClusterCalib();
             // Set the action for the calibrated pulse digits.
-            fClusterCalib->SaveCalibratedPulses(fSavePulses);
+            fClusterCalib->SaveCalibratedPulses(fSaveCalib);
+            fClusterCalib->SaveDecorrelatedPulses(fSaveDecorrel);
+            fClusterCalib->SaveDeconvolvedPulses(fSaveDeconv);
             fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
             fClusterCalib->CalibrateAllChannels(fCalibrateAllChannels);
             fClusterCalib->ApplyEfficiencyCalibration(
@@ -138,7 +147,9 @@ private:
     CP::TClusterCalib* fClusterCalib;
     CP::TActivityFilter* fActivityFilter;
     
-    bool fSavePulses;
+    bool fSaveDeconv;
+    bool fSaveDecorrel;
+    bool fSaveCalib;
     bool fApplyDriftCalibration;
     bool fCalibrateAllChannels;
     bool fApplyEfficiencyCalibration;
