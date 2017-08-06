@@ -36,10 +36,10 @@ public:
                   << std::endl
                   << "        H: Override maximum allowed number of hits"
                   << std::endl;
-        std::cout << "   -O save-pulse      "
+        std::cout << "   -O save-deconv     "
                   << "Save the calibrated (after deconvolution) pulses"
                   << std::endl;
-        std::cout << "   -O save-decorrel      "
+        std::cout << "   -O save-decorrel   "
                   << "Save the calibrated (after decorrelation) pulses"
                   << std::endl;
         std::cout << "   -O save-calib      "
