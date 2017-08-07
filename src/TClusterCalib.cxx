@@ -393,7 +393,6 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::CalibrateChannels(
 
         CP::TChannelCalib channelCalib;
         if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
-            CaptLog("Bad Channel " <<pulse->GetChannelId().AsString());
             continue;
         }
         
