@@ -29,9 +29,9 @@ CP::TPulseCalib::operator()(const CP::TDigitProxy& digit) {
 
     double timeOffset = calib.GetTimeConstant(chan,0);
     double digitStep = calib.GetTimeConstant(chan,1);
-    fPedestal = calib.GetGainConstant(chan,0);
-    double gain = calib.GetGainConstant(chan,1);
+    fPedestal = calib.GetDigitizerConstant(chan,0);
     double slope = calib.GetDigitizerConstant(chan,1);
+    double gain = calib.GetGainConstant(chan,1);
 
     double startTime = digitStep*pulse->GetFirstSample() + timeOffset;
     double stopTime 
