@@ -65,11 +65,21 @@ CP::TWirePeaks::TWirePeaks(bool correctLifetime,
             "clusterCalib.peakSearch.endSkip");
     if (fDigitEndSkip < 1) fDigitEndSkip = 1;
     
-    fIntegrationChargeThreshold = 0.001; // effectively zero.
+    fIntegrationChargeThreshold 
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.peakArea.stop");
 
-    fIntegrationShoulderThreshold = 0.5;
+    fIntegrationShoulderThreshold 
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.peakArea.shoulder");
 
-    fIntegrationValleyThreshold = 0.1;
+    fIntegrationValleyThreshold
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.peakArea.valley");
+
+    fIntegrationExtra
+        = CP::TRuntimeParameters::Get().GetParameterD(
+            "clusterCalib.peakArea.extra");
 
 }
 CP::TWirePeaks::~TWirePeaks() {}
@@ -88,6 +98,9 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
     // A threshold to say that we are climbing the next peak.
     double valleyThreshold = peak*fIntegrationValleyThreshold;
     
+    // Start at the peak, and extend the beginning of the peak until the
+    // sample is below threshold, or the shoulder is passed and a new peak
+    // seems to be found.
     std::size_t beginIndex = peakIndex;
     for (std::size_t i=peakIndex; i>0; --i) {
         if (0.5 < fWork[i]) break;
@@ -101,9 +114,20 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (passedShoulder && v > valley+valleyThreshold) break;
     }
 
+    // Extend the start of the peak to include the "extra hits"
+    int extra = fIntegrationExtra;
+    for (std::size_t i=beginIndex; i>0; --i) {
+        if (0.5 < fWork[i]) break;
+        beginIndex = i;
+        if (--extra < 1) break;
+    }
+    
     valley = peak;
     passedShoulder = false;
 
+    // Start at the peak, and extend the ending of the peak until the sample
+    // is below threshold, or the shoulder is passed and a new peak seems to
+    // be found.
     std::size_t endIndex = peakIndex;
     for (std::size_t i=peakIndex; i<deconv.GetSampleCount(); ++i) {
         if (0.5 < fWork[i]) break;
@@ -116,6 +140,15 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (v < fIntegrationChargeThreshold*peak) break;
         if (passedShoulder && v > valley+valleyThreshold) break;
     }
+
+    // Extend the end of the peak to include the "extra hits"
+    extra = fIntegrationExtra;
+    for (std::size_t i=endIndex; i<deconv.GetSampleCount(); ++i) {
+        if (0.5 < fWork[i]) break;
+        endIndex = i;
+        if (--extra < 1) break;
+    }
+    
     return std::make_pair(beginIndex,endIndex);
 }
 
@@ -156,6 +189,9 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     double digitStep = deconv.GetLastSample()-deconv.GetFirstSample();
     digitStep /= deconv.GetSampleCount();
 
+    // fWork is a generic work area that is reused for different purposes
+    // through-out the peak finding.  It's allocated once per event and reused
+    // for each wire to help save some memory churn.
     if (fWork.capacity() < deconv.GetSampleCount()) {
         fWork.resize(deconv.GetSampleCount());
     }
@@ -222,7 +258,8 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     }
     
     // Don't bother with channels that have crazy big noise.  This says if the
-    // noise is bigger than the peak selection threshold, don't save the wire.
+    // noise is bigger than the peak selection threshold.  For now, warn, but
+    // continue.
     if (noise > peakAreaCut) {
         CaptInfo("Wire with large peak noise: " << deconv.GetChannelId()
                  << "  noise: " << noise);

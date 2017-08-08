@@ -31,8 +31,8 @@ The minimum area of a peak candidate.  The expectation is that a MIP will
 create approximately 6000 thermal electrons per mm.  The units are in
 collected electrons.
 
-< clusterCalib.peakSearch.area.collection = 4000 electrons >
-< clusterCalib.peakSearch.area.induction = 4000 electrons >
+< clusterCalib.peakSearch.area.collection = 2000 electrons >
+< clusterCalib.peakSearch.area.induction = 2000 electrons >
 
 The FWHM of the narrowest real peak.  Peaks candidates that are narrower
 than this are rejected.
@@ -55,6 +55,33 @@ Set the limit on how wide a time cluster can be before the cluster is split
 into multiple hits.
 
 < clusterCalib.peakSearch.rmsLimit = 4 ms >
+
+Once a peak has been found, the charge is calculated by summing "out
+from the peak" until the sample charges are below the charge
+threshold.  This sets a threshold as a fraction of the peak height.
+
+< clusterCalib.peakArea.stop = 0.001 >
+
+Once a peak has been found, the charge is calculated by summing "out
+from the peak" until the sample charges are below the charge
+thresholds.  This sets a threshold as a fraction of the peak height
+below which a minimum will be taken as the boundary of the peak.
+
+< clusterCalib.peakArea.shoulder = 0.2 >
+
+Once a peak has been found, the charge is calculated by summing "out
+from the peak" until the sample charges are below the charge
+thresholds.  This sets a threshold as a fraction of the peak height
+above which a new peak is assumed to be starting.
+
+< clusterCalib.peakArea.valley = 0.1 >
+
+Once a peak extent has been found, samples on either side are added
+into the peak so that we have a "side-band" visible in the hit.  This
+should be very small (e.g. zero) in busy events since it will add
+confusion between hits.
+
+< clusterCalib.peakArea.extra = 10 >
 
 Set the amount of time domain smoothing to be applied to the input signal
 before applying the deconvolution.  The value controls the number of

@@ -117,6 +117,11 @@ private:
     /// above which a new peak is assumed to be starting.
     double fIntegrationValleyThreshold;
 
+    /// Once a peak extent has been found, samples on either side are added
+    /// into the peak so that we have a "side-band" visible in the hit.  This
+    /// should be very small (e.g. zero) in busy events since it will add
+    /// confusion between hits.
+    double fIntegrationExtra;
 };
 
 #endif
