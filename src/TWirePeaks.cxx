@@ -112,14 +112,6 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (passedShoulder && v > valley+valleyThreshold) break;
     }
 
-    // Extend the start of the peak to include the "extra hits"
-    int extra = fIntegrationExtra;
-    for (std::size_t i=beginIndex; i>0; --i) {
-        if (0.5 < fWork[i]) break;
-        beginIndex = i;
-        if (--extra < 1) break;
-    }
-    
     valley = peak;
     passedShoulder = false;
 
@@ -139,14 +131,6 @@ CP::TWirePeaks::PeakExtent(int peakIndex,
         if (passedShoulder && v > valley+valleyThreshold) break;
     }
 
-    // Extend the end of the peak to include the "extra hits"
-    extra = fIntegrationExtra;
-    for (std::size_t i=endIndex; i<deconv.GetSampleCount(); ++i) {
-        if (0.5 < fWork[i]) break;
-        endIndex = i;
-        if (--extra < 1) break;
-    }
-    
     return std::make_pair(beginIndex,endIndex);
 }
 
@@ -206,36 +190,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         peakWidthCut = fPeakWidthInd;
     }
 
-#ifdef TPC_WIRE    
-    std::ostringstream histName;
-    histName << "wire-"
-             << std::setw(3)
-             << std::setfill('0')
-             << CP::TChannelInfo::Get().GetWireNumber(deconv.GetChannelId());
-
-    std::ostringstream histTitle;
-    histTitle << "Wire "
-             << CP::TChannelInfo::Get().GetWireNumber(deconv.GetChannelId())
-             << " (" << deconv.GetChannelId().AsString() << ")";
-#else
-    std::ostringstream histName;
-    CP::TGeometryId id
-        = CP::TChannelInfo::Get().GetGeometry(deconv.GetChannelId());
-
-    if (CP::GeomId::Captain::IsUWire(id)) histName << "wire-u";
-    if (CP::GeomId::Captain::IsVWire(id)) histName << "wire-v";
-    if (CP::GeomId::Captain::IsXWire(id)) histName << "wire-x";
-    histName << "-" << std::setw(3) << std::setfill('0')
-             << CP::GeomId::Captain::GetWireNumber(id);
-
-    std::ostringstream histTitle;
-    if (CP::GeomId::Captain::IsUWire(id)) histTitle << "Wire U";
-    if (CP::GeomId::Captain::IsVWire(id)) histTitle << "Wire V";
-    if (CP::GeomId::Captain::IsXWire(id)) histTitle << "Wire X";
-    histTitle << "-" << CP::GeomId::Captain::GetWireNumber(id)
-              << " (" << deconv.GetChannelId().AsString() << ")";
-#endif
-
     // Find the magnitude of noise for this channel.
     for (std::size_t i = 0; i<deconv.GetSampleCount(); ++i) {
         fWork[i] = std::abs(deconv.GetSample(i));
@@ -261,7 +215,6 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     if (noise > peakAreaCut) {
         CaptInfo("Wire with large peak noise: " << deconv.GetChannelId()
                  << "  noise: " << noise);
-        // return wireCharge;
     }
 
     // Now use fWork to mask out peaks that are part of another peak.
@@ -343,53 +296,34 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
     // Sort the peaks by sample number.
     if (!peaks.empty()) std::sort(peaks.begin(), peaks.end());
 
-#ifdef CHECK_FOR_PEAK_OVERLAP
-    std::vector< std::pair<int,int> >::iterator last = peaks.end();
+    std::vector< std::pair<int,int> >::iterator prev = peaks.end();
     for(std::vector< std::pair<int,int> >::iterator p = peaks.begin();
         p != peaks.end(); ++p) {
-        if (last != peaks.end()) {
-            if (p->first <= last->second) {
-                CaptError("Overlapping hits for "
-                          << deconv.GetChannelId()
-                          << " " << last->first << "--" << last->second
-                          << " overlaps "
-                          << " " << p->first << "--" << p->second);
-            }
+        if (prev == peaks.end()) {
+            prev = p;
+            continue;
         }
-        last = p;
+        if (p->first <= prev->second) {
+            CaptError("Overlapping hits for "
+                      << deconv.GetChannelId()
+                      << " " << prev->first << "--" << prev->second
+                      << " overlaps "
+                      << " " << p->first << "--" << p->second);
+            continue;
+        }
     }
-#endif
 
     // Make all the hits.  
     CP::TMakeWireHit makeHit(fCorrectCollectionEfficiency);
     for(std::vector< std::pair<int,int> >::iterator p = peaks.begin();
         p != peaks.end(); ++p) {
         CP::THandle<CP::THit> newHit
-            = makeHit(deconv, digitStep, t0,
-                      p->first, p->second,
-                      false);
+            = makeHit(deconv, digitStep, 
+                      p->first, p->second);
         if (!newHit) continue;
         wireCharge += newHit->GetCharge();
         hits.push_back(newHit);
     }
-
-#ifdef  CHECK_FOR_OVERLAPPED_HITS
-    for (CP::THitSelection::iterator h = hits.begin(); h != hits.end(); ++h) {
-        for (CP::THitSelection::iterator i = h+1; i != hits.end(); ++i) {
-            // The hits aren't the same channel, so they can't overlap.
-            if ((*i)->GetChannelId() != (*h)->GetChannelId()) continue;
-            // "i" starts after "h" ends, so they can't overlap.
-            if ((*i)->GetTimeStart() >= (*h)->GetTimeStop()) continue;
-            // "i" ends before "h" begins, so they can't overlap.
-            if ((*i)->GetTimeStop() <= (*h)->GetTimeStart()) continue;
-            CaptError("Overlapping hit on " << (*h)->GetChannelId());
-            CaptError("   hit " << (*h)->GetTimeStart()
-                      << " " << (*h)->GetTimeStop());
-            CaptError("   hit " << (*i)->GetTimeStart()
-                      << " " << (*i)->GetTimeStop());
-        }
-    }
-#endif
 
     return wireCharge;
 }

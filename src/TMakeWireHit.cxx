@@ -28,13 +28,9 @@ CP::TMakeWireHit::TMakeWireHit(bool correctEfficiency) {
 CP::TMakeWireHit::~TMakeWireHit() { }
 
 CP::THandle<CP::THit>
-CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
-                             double step, double t0,
-                             std::size_t beginIndex, std::size_t endIndex,
-                             bool split) {
+CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit, double step,
+                             std::size_t beginIndex, std::size_t endIndex) {
     double charge = 0.0;
-    double sample = 0.0;
-    double sampleSquared = 0.0;
     int samples = 1;
 
     /// Protect against out of bounds problems.
@@ -53,94 +49,74 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
         sampleCharge[i-beginIndex] = digit.GetSample(i);
     }
 
-    // Find the peak charge, average sample index and sample index squared for
-    // the peak.  The average is charge weighted.
+    // Find the peak charge.
     for (std::size_t j=beginIndex; j<=endIndex; ++j) {
         double v = digit.GetSample(j);
         if (v <= 0) continue;
         charge += v;
-        sample += v*j;
-        sampleSquared += v*j*j;
         ++samples;
     }
 
     // Protect against empty regions.
     if (charge<1) return CP::THandle<CP::THit>();
 
-    sample /= charge;
-    sampleSquared /= charge;
-
-    // Convert the sample index into a time.
-    double time = (sample + 0.5)*step + digit.GetFirstSample();
-    
-    // Find the sample RMS, and then convert into a time RMS.
-    double rms = step*std::sqrt(sampleSquared - sample*sample + 1.0);
-
-#define FWHM_OVERRIDE
-#ifdef FWHM_OVERRIDE
-    {
-        // Estimate the RMS using the FWHM.
-        std::vector<double>::iterator maxBin = sampleCharge.end();
-        for (std::vector<double>::iterator s = sampleCharge.begin();
-             s != sampleCharge.end(); ++s) {
-            if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
-        }
-        if (maxBin != sampleCharge.end()) {
-            std::vector<double>::iterator lowBin = maxBin;
-            while (lowBin != sampleCharge.begin()) {
-                --lowBin;
-                if (*lowBin < 0.5*(*maxBin)) break;
-            }
-            std::vector<double>::iterator hiBin = maxBin;
-            while (hiBin != sampleCharge.end()) {
-                if (*hiBin < 0.5*(*maxBin)) break;
-                if (hiBin+1 == sampleCharge.end()) break;
-                ++hiBin;
-            }
-            double lowVal=(0.5*(*maxBin)-(*lowBin))/(*(lowBin+1)-(*lowBin));
-            double hiVal = (0.5*(*maxBin)-(*hiBin))/(*(hiBin-1)-(*hiBin));
-            int diff = hiBin-lowBin;
-            // Convert FWHM into an RMS.  The 2.36 factor is the ratio between
-            // the rms and the FWHM for a Gaussian peak.
-            double bins = 1.0*(diff - lowVal - hiVal)/2.36;
-            if (bins > 1) rms = bins*step;
-        }
+    double fwhm = step;
+    // Estimate the RMS using the FWHM.
+    std::vector<double>::iterator maxBin = sampleCharge.end();
+    for (std::vector<double>::iterator s = sampleCharge.begin();
+         s != sampleCharge.end(); ++s) {
+        if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
     }
-#endif
-    
-#define TIME_OVERRIDE
-#ifdef TIME_OVERRIDE
-    {
-        // Find the time by looking at samples near the peak.
-        std::vector<double>::iterator maxBin = sampleCharge.end();
-        for (std::vector<double>::iterator s = sampleCharge.begin();
-             s != sampleCharge.end(); ++s) {
-            if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
+    if (maxBin != sampleCharge.end()) {
+        std::vector<double>::iterator lowBin = maxBin;
+        while (lowBin != sampleCharge.begin()) {
+            --lowBin;
+            if (*lowBin < 0.5*(*maxBin)) break;
         }
-        if (maxBin != sampleCharge.end()) {
-            std::vector<double>::iterator lowBin = maxBin;
-            while (lowBin != sampleCharge.begin()) {
-                --lowBin;
-                if (2.0*rms < step*(maxBin-lowBin)) break;
-            }
-            std::vector<double>::iterator hiBin = maxBin;
-            while (hiBin != sampleCharge.end()) {
-                if (2.0*rms < step*(hiBin-maxBin)) break;
-                ++hiBin;
-            }
-            time = 0.0;
-            double w = 0.0;
-            int bin = 0;
-            for (std::vector<double>::iterator b = lowBin; b != hiBin; ++b) {
-                time += (*b)*bin;
-                w += (*b);
-                ++bin;
-            }
-            time *= step/w;
-            time += step*(lowBin-sampleCharge.begin()) + startTime + step/2.0;
+        std::vector<double>::iterator hiBin = maxBin;
+        while (hiBin != sampleCharge.end()) {
+            if (*hiBin < 0.5*(*maxBin)) break;
+            if (hiBin+1 == sampleCharge.end()) break;
+            ++hiBin;
         }
+        double lowVal=(0.5*(*maxBin)-(*lowBin))/(*(lowBin+1)-(*lowBin));
+        double hiVal = (0.5*(*maxBin)-(*hiBin))/(*(hiBin-1)-(*hiBin));
+        int diff = hiBin-lowBin;
+        // Convert FWHM into an RMS.  The 2.36 factor is the ratio between
+        // the rms and the FWHM for a Gaussian peak.
+        fwhm = 1.0*(diff - lowVal - hiVal)*step;
+        if (fwhm > 1) fwhm *= step;
     }
-#endif
+    double rms = fwhm/2.36;
+    
+    double time = 0.0;
+    // Find the time by looking at samples near the peak.
+    maxBin = sampleCharge.end();
+    for (std::vector<double>::iterator s = sampleCharge.begin();
+         s != sampleCharge.end(); ++s) {
+        if (maxBin==sampleCharge.end() || *maxBin < *s) maxBin = s;
+    }
+    if (maxBin != sampleCharge.end()) {
+        std::vector<double>::iterator lowBin = maxBin;
+        while (lowBin != sampleCharge.begin()) {
+            --lowBin;
+            if (2.0*rms < step*(maxBin-lowBin)) break;
+        }
+        std::vector<double>::iterator hiBin = maxBin;
+        while (hiBin != sampleCharge.end()) {
+            if (2.0*rms < step*(hiBin-maxBin)) break;
+            ++hiBin;
+        }
+        double w = 0.0;
+        int bin = 0;
+        for (std::vector<double>::iterator b = lowBin; b != hiBin; ++b) {
+            time += (*b)*bin;
+            w += (*b);
+            ++bin;
+        }
+        time *= step/w;
+        time += step*(lowBin-sampleCharge.begin()) + startTime + step/2.0;
+    }
     
     // Base the uncertainty in the time on the number of samples used to find
     // the RMS.

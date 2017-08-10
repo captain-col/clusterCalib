@@ -24,9 +24,8 @@ public:
     /// Build a hit out of the digit samples between beginIndex and endIndex
     /// (inclusive).  The digit step size is provided as an input.
     CP::THandle<CP::THit> 
-    operator ()(const CP::TCalibPulseDigit& digit, 
-                double digitStep, double t0,
-                std::size_t beginIndex, std::size_t endIndex, bool split);
+    operator ()(const CP::TCalibPulseDigit& digit, double digitStep, 
+                std::size_t beginIndex, std::size_t endIndex);
     
 private:
 
