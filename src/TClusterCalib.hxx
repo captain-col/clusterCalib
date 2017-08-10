@@ -45,15 +45,6 @@ public:
         fCalibrateAllChannels = value;
     }
 
-    /// Set a flag to correct the electron drift.  If this is true, then the
-    /// normal calibration is applied, but if it's false, then the drift
-    /// correction is not applied and the electron lifetime can be calculated.
-    /// The normal setting is true.  This is false when running the drift
-    /// calibration.
-    void ApplyDriftCalibration(bool value = true) {
-        fApplyDriftCalibration = value;
-    }
-
     /// Set a flag to correct the wire collection efficiency.  If this is
     /// true, then the normal calibration is applied, but if it's false, then
     /// the collection efficiency correction is not applied.  The normal

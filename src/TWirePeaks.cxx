@@ -22,9 +22,7 @@
 #include <sstream>
 #include <iostream>
 
-CP::TWirePeaks::TWirePeaks(bool correctLifetime,
-                           bool correctEfficiency) {
-    fCorrectElectronLifetime = correctLifetime;
+CP::TWirePeaks::TWirePeaks(bool correctEfficiency) {
     fCorrectCollectionEfficiency = correctEfficiency;
     fMaxPeaks = 50;
     
@@ -363,8 +361,7 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
 #endif
 
     // Make all the hits.  
-    CP::TMakeWireHit makeHit(fCorrectElectronLifetime,
-                             fCorrectCollectionEfficiency);
+    CP::TMakeWireHit makeHit(fCorrectCollectionEfficiency);
     for(std::vector< std::pair<int,int> >::iterator p = peaks.begin();
         p != peaks.end(); ++p) {
         CP::THandle<CP::THit> newHit

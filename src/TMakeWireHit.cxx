@@ -22,9 +22,7 @@
 #include <sstream>
 #include <iostream>
 
-CP::TMakeWireHit::TMakeWireHit(bool correctLifetime,
-                               bool correctEfficiency) {
-    fCorrectElectronLifetime = correctLifetime;
+CP::TMakeWireHit::TMakeWireHit(bool correctEfficiency) {
     fCorrectCollectionEfficiency = correctEfficiency;
 }
 CP::TMakeWireHit::~TMakeWireHit() { }
@@ -205,13 +203,6 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit,
     if (fCorrectCollectionEfficiency) {
         charge /= calib.GetCollectionEfficiency(digit.GetChannelId());
         chargeUnc /= calib.GetCollectionEfficiency(digit.GetChannelId());
-    }
-
-    // Correct for the electron drift lifetime.
-    double deltaT = time - t0;
-    if (fCorrectElectronLifetime && deltaT > 0.0) {
-        charge *= std::exp(deltaT/calib.GetElectronLifetime());
-        chargeUnc *= std::exp(deltaT/calib.GetElectronLifetime());
     }
 
     // Check the hit validity.

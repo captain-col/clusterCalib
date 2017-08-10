@@ -14,7 +14,6 @@ public:
         fSaveCalib = false;
         fSaveDecorrel = false;
         fSaveDeconv = false;
-        fApplyDriftCalibration = false;
         fCalibrateAllChannels = false;
         fApplyEfficiencyCalibration = true;
         fRemoveCorrelatedPedestal = true;
@@ -45,10 +44,6 @@ public:
         std::cout << "   -O save-calib      "
                   << "Save the calibrated pulses"
                   << std::endl;
-        std::cout << "   -O drift      Apply the drift calibration"
-                  << std::endl;
-        std::cout << "   -O no-drift   Don't apply the drift calibration"
-                  << std::endl;
         std::cout << "   -O efficiency     Apply the efficiency (default)"
                   << std::endl;
         std::cout << "   -O no-efficiency  Don't apply the efficiency"
@@ -71,11 +66,6 @@ public:
         else if (option.find("corr") == 0) {
             fRemoveCorrelatedPedestal = true;
         }
-        else if (option == "no-drift") {
-            CaptLog("Do not apply the electron lifetime calibration");
-            fApplyDriftCalibration = false;
-        }
-        else if (option == "drift") fApplyDriftCalibration = true;
         else if (option == "no-efficiency") {
             CaptLog("Do not apply the collection efficiency calibration");
             fApplyEfficiencyCalibration = false;
@@ -119,7 +109,6 @@ public:
             fClusterCalib->SaveCalibratedPulses(fSaveCalib);
             fClusterCalib->SaveDecorrelatedPulses(fSaveDecorrel);
             fClusterCalib->SaveDeconvolvedPulses(fSaveDeconv);
-            fClusterCalib->ApplyDriftCalibration(fApplyDriftCalibration);
             fClusterCalib->CalibrateAllChannels(fCalibrateAllChannels);
             fClusterCalib->ApplyEfficiencyCalibration(
                 fApplyEfficiencyCalibration);
@@ -150,7 +139,6 @@ private:
     bool fSaveDeconv;
     bool fSaveDecorrel;
     bool fSaveCalib;
-    bool fApplyDriftCalibration;
     bool fCalibrateAllChannels;
     bool fApplyEfficiencyCalibration;
     bool fRemoveCorrelatedPedestal;

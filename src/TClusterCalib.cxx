@@ -54,7 +54,6 @@ CP::TClusterCalib::TClusterCalib() {
     fSaveDecorrelatedPulses = false;
     fSaveDeconvolvedPulses = false;
     fCalibrateAllChannels = false;
-    fApplyDriftCalibration = false;
     fApplyEfficiencyCalibration = true;
     fRemoveCorrelatedPedestal = true;
 }
@@ -160,8 +159,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
     std::unique_ptr<CP::THitSelection> driftHits(
         new CP::THitSelection("drift"));
     
-    CP::TWirePeaks wirePeaks(fApplyDriftCalibration,
-                             fApplyEfficiencyCalibration);
+    CP::TWirePeaks wirePeaks(fApplyEfficiencyCalibration);
 
     // Loop over all of the calibrated pulse digits and find the hits.
     for (std::size_t d = 0; d < driftCalib->size(); ++d) {
