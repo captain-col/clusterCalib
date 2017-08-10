@@ -49,4 +49,4 @@ application clusterCalib-hits ../app/clusterCalibHits.cxx
 macro_append clusterCalib-hits_dependencies " clusterCalib " 
 
 application clusterCalib-pulse ../app/clusterCalibPulse.cxx
-macro_append clusterCalib-hits_dependencies " clusterCalib " 
+macro_append clusterCalib-pulse_dependencies " clusterCalib " 
