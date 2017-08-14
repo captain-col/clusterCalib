@@ -319,7 +319,8 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
         p != peaks.end(); ++p) {
         CP::THandle<CP::THit> newHit
             = makeHit(deconv, digitStep, 
-                      p->first, p->second);
+                      p->first, p->second,
+                      fIntegrationExtra);
         if (!newHit) continue;
         wireCharge += newHit->GetCharge();
         hits.push_back(newHit);

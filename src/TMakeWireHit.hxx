@@ -25,7 +25,8 @@ public:
     /// (inclusive).  The digit step size is provided as an input.
     CP::THandle<CP::THit> 
     operator ()(const CP::TCalibPulseDigit& digit, double digitStep, 
-                std::size_t beginIndex, std::size_t endIndex);
+                std::size_t beginIndex, std::size_t endIndex,
+                std::size_t extraSamples = 0);
     
 private:
 
