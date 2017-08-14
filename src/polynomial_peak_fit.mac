@@ -1,0 +1,54 @@
+/* Define a least squares fit to a set of {x[i],y[i]} points for the model
+    Y ~ a + b*x + c*x^2.  This is used to generate code for TMakeWireHit.
+
+Run this using: maxima -b polynomial_peak_fit.mac
+
+*/
+SquaredSum: sum((y[i]-a-b*x[i]-c*x[i]^2)^2,i,1,m);
+
+/* Find the values for a, b, and c by taking the partial derivatives and
+   solving for zero */
+e0: expand(diff(SquaredSum,a));
+e1: expand(diff(SquaredSum,b));
+e2: expand(diff(SquaredSum,c));
+
+/* Make the sum substitutions by hand!!!!
+   sYi = sum(Y[i],i,0,m)
+   sXiYi = sum(X[i]*Y[i],i,0,m)
+   sX2iYi = sum(X[i]^2*Y[i],i,0,m)
+   sYi = sum(Y[i],i,0,m)
+   sXi = sum(X[i],i,0,m)
+   sX2i = sum(X[i]^2,i,0,m)
+   sX3i = sum(X[i]^3,i,0,m)
+   sX4i = sum(X[i]^4,i,0,m)
+   */
+
+ee0: sYi - a * m - b*sXi - c*sX2i = 0;
+ee1: sXiYi - c*sX3i - b*sX2i - a*sXi  = 0;
+ee2: sX2iYi - c*sX4i - b*sX3i - a*sX2i  = 0;
+
+/* Solve the linear equations */
+soln: solve([ee0,ee1,ee2],[a,b,c]);
+
+/* Find the best fit x */
+solve([diff(a+b*x+c*x*x,x)],[x]);
+
+/* find the second derivative */
+diff(SquaredSum,x[i],2);
+
+/* Neat trick to change x^n into pow(x,n) so fortran can print "C++" code */
+expd: subst("^"=pow,soln);
+
+/* Load the f90 printing module and change the maximum line
+   length to "infinite" so that it can be cut and pasted in to C++ */
+load("f90");
+:lisp (setq *f90-output-line-length-max* 1000000000)
+
+/* Print the lines.  The code in soln.h can be cut and pasted into c++ with
+   only minor modifications. */  
+with_stdout("soln.h",
+	f90(part(part(expd,1),1)),
+	f90(part(part(expd,1),2)),
+	f90(part(part(expd,1),3)));
+
+
