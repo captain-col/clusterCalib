@@ -53,15 +53,38 @@ bool CP::TElectronicsResponse::Calculate() {
     if (!fMustRecalculate) return false;
     fMustRecalculate = false;
 
+#define USE_AVERAGE_SHAPE
+#ifdef USE_AVERAGE_SHAPE
+    Cache::iterator cache = fCache.begin();
+#else
+    Cache::iterator cache = fCache.find(fChannelId);
+#endif
+    if (cache != fCache.end()) {
+        fResponse = cache->second.first;
+        fFrequency = cache->second.second;
+        return true;
+    }
+    
     TChannelCalib calib;
+
+#ifdef USE_AVERAGE_SHAPE
+    CaptError("Using Average Pulse Shape: "
+              << " Peak: " << calib.GetAveragePulseShapePeakTime(fChannelId)
+              << " Rise: " << calib.GetAveragePulseShapeRise(fChannelId)
+              << " Fall: " << calib.GetAveragePulseShapeFall(fChannelId));
+#endif
     
     // Fill the response function.  This explicitly normalizes so that the
     // pulse shaping is amplitude conserving (the pulse shaping for a
     // "delta-function" sample doesn't change the pulse height).
     double normalization = 0.0;
     for (std::size_t i=0; i<fResponse.size(); ++i) {
-        double arg = calib.GetTimeConstant(fChannelId)*(1.0*i+0.5);
+        double arg = 1.0*calib.GetTimeConstant(fChannelId)*i;
+#ifdef USE_AVERAGE_SHAPE
+        double v = calib.GetAveragePulseShape(fChannelId,arg);
+#else
         double v = calib.GetPulseShape(fChannelId,arg);
+#endif
         fResponse[i] = v;
         normalization = std::max(normalization,v);
     }
@@ -88,6 +111,9 @@ bool CP::TElectronicsResponse::Calculate() {
         fft->GetPointComplex(i,rl,im);
         fFrequency[i] = std::complex<double>(rl,im);
     }
+
+    fCache[fChannelId].first = fResponse;
+    fCache[fChannelId].second = fFrequency;
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -124,11 +150,17 @@ bool CP::TElectronicsResponse::Calculate(const CP::TEventContext& context,
         fMustRecalculate = true;
     }
 
-    if (context != fEventContext) {
+    if (context.GetRun() != fEventContext.GetRun()) {
         fMustRecalculate = true;
     }
         
+    if (!channel.IsMCChannel()
+        && channel.IsTPCChannel()
+        && channel != fChannelId) {
+        fMustRecalculate = true;
+    }
     fEventContext = context;
     fChannelId = channel;
+
     return true;
 }

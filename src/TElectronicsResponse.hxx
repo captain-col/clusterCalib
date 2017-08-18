@@ -6,6 +6,8 @@
 #include <HEPUnits.hxx>
 
 #include <complex>
+#include <vector>
+#include <map>
 
 namespace CP {
     class TElectronicsResponse;
@@ -21,6 +23,10 @@ public:
 
     /// The complex frequency.  This comes from a FFT of the response.
     typedef std::complex<double> Frequency;
+
+    typedef std::map<CP::TChannelId,
+                     std::pair<std::vector<Response>,
+                               std::vector<Frequency> > > Cache;
 
     virtual ~TElectronicsResponse();
 
@@ -94,5 +100,8 @@ private:
 
     /// The frequency distribution
     std::vector<Frequency> fFrequency;
+
+    /// A cache of pre-calculated channel responses.
+    Cache fCache;
 };
 #endif
