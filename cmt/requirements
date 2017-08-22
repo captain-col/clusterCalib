@@ -50,3 +50,6 @@ macro_append clusterCalib-hits_dependencies " clusterCalib "
 
 application clusterCalib-pulse ../app/clusterCalibPulse.cxx
 macro_append clusterCalib-pulse_dependencies " clusterCalib " 
+
+application clusterCalibFit-pulse ../app/clusterCalibPulseFit.cxx
+macro_append clusterCalibFit-pulse_dependencies " clusterCalib " 
