@@ -20,7 +20,9 @@
 #include <TString.h>
 #include <TProfile.h>
 
+#include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <map>
 #include <ctime>
@@ -113,20 +115,23 @@ public:
     // string with the creation date.
     std::time_t t = std::time(0);
     char buf[256];
-    std::strftime(buf,sizeof(buf),
-		  "TPC_CHANNEL_CALIB_FIT_TABLE-%Y-%m-%d.update",
-		  std::gmtime(&t));
-    std::string outputName(buf);
-    std::ofstream output(outputName.c_str());
-    std::strftime(buf,sizeof(buf),"'%Y-%m-%d %H:%M:%S'",std::gmtime(&t));
+    std::strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M:%S",std::gmtime(&t));
     std::string creationDate(buf);
+    std::ostringstream outputName;
+    outputName << "TPC_CHANNEL_CALIB_TABLE"
+	       << "_" << fTimeStamp.substr(0,fTimeStamp.find(" "))
+	       << "_" << fRunNumber
+	       << "_" << creationDate.substr(0,creationDate.find(" "))
+	       << ".update";
+            
+    std::ofstream output(outputName.str());
 
     // Write the header for the calibration table.
     output << "BEGIN_TABLE TPC_CHANNEL_CALIB_TABLE"
-	   << " " << fTimeStamp
+	   << " '" << fTimeStamp << "'"
 	   << " " << "'2037-09-01 00:00:00'" // end-date
 	   << " " << 0                       // Aggregate Number
-	   << " " << creationDate 
+	   << " '" << creationDate << "'"
 	   << " " << 0                      // task ???
 	   << " " << "DETECTORMASK=mCAPTAIN"
 	   << " " << "SIMMASK=Data"
@@ -145,8 +150,8 @@ public:
     double fallShp = 0.0;
     
     for (std::map<CP::TChannelId,std::vector<int>>::iterator
-      h = fChanStatus.begin();
-      h != fChanStatus.end(); ++h) {
+	   h = fChanStatus.begin();
+	 h != fChanStatus.end(); ++h) {
 
       CP::TTPCChannelId chanId(h->first);
       
@@ -182,7 +187,7 @@ public:
       // 		<< ", " << fallShp <<"+/-" << getRMS(fChanFallShape[chanId],fallShp)
       // 		<< std::endl;      
       
-      }
+    }
 
 
 
@@ -193,7 +198,9 @@ public:
       = event.Get<CP::TDigitContainer>("~/digits/drift");
 
     fTimeStamp = event.GetContext().GetTimeStampString();
-        
+    fTimeStamp = fTimeStamp.substr(1,fTimeStamp.size()-2);
+    fRunNumber = event.GetContext().GetRun();
+	
     if (!drift) {
       CaptError("No drift signals for this event " << event.GetContext());
       return false;
@@ -239,19 +246,19 @@ public:
       gainValue /= fInjectedCharge; // V/C
       gainValue /= (unit::mV/unit::femto/unit::coulomb);
       if (gainValue < 1.0) {
-      gainValue = 0.0;
-      status |= CP::TTPC_Channel_Calib_Table::kNoSignal;
+	gainValue = 0.0;
+	status |= CP::TTPC_Channel_Calib_Table::kNoSignal;
       }
       else if (gainValue < 10) {
-      status |= CP::TTPC_Channel_Calib_Table::kLowGain;
+	status |= CP::TTPC_Channel_Calib_Table::kLowGain;
       }
       else if (gainValue > 20) {
-      status |= CP::TTPC_Channel_Calib_Table::kHighGain;
+	status |= CP::TTPC_Channel_Calib_Table::kHighGain;
       }
       double peakTime = peakingTime(pulseShape->GetParameter(5));
       peakTime *= 500.0*unit::ns;
       if (peakTime < 700*unit::ns) {
-      status |= CP::TTPC_Channel_Calib_Table::kBadPeak;
+	status |= CP::TTPC_Channel_Calib_Table::kBadPeak;
       }
       
 
@@ -301,6 +308,9 @@ public:
 private:
   // The time stamp for the data generating this calibration.
   std::string fTimeStamp;
+
+  // The run number of the calibration file.
+  int fRunNumber;
     
   // The pulse into the capacitor
   double fInjectedPulse;
