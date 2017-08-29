@@ -24,21 +24,21 @@ signal.
 The minimum peak charge value of a peak candidate.  The units are in
 collected electrons
 
-< clusterCalib.peakSearch.charge.collection = 1000 electrons >
-< clusterCalib.peakSearch.charge.induction = 1000 electrons >
+< clusterCalib.peakSearch.charge.collection = 500 electrons >
+< clusterCalib.peakSearch.charge.induction = 500 electrons >
 
 The minimum area of a peak candidate.  The expectation is that a MIP will
 create approximately 6000 thermal electrons per mm.  The units are in
 collected electrons.
 
-< clusterCalib.peakSearch.area.collection = 2000 electrons >
-< clusterCalib.peakSearch.area.induction = 2000 electrons >
+< clusterCalib.peakSearch.area.collection = 3000 electrons >
+< clusterCalib.peakSearch.area.induction = 3000 electrons >
 
 The FWHM of the narrowest real peak.  Peaks candidates that are narrower
 than this are rejected.
 
-< clusterCalib.peakSearch.width.collection = 0.2 us >
-< clusterCalib.peakSearch.width.induction = 0.2 us >
+< clusterCalib.peakSearch.width.collection = 0.6 us >
+< clusterCalib.peakSearch.width.induction = 0.6 us >
 
 Limit peaks that are close to the measured noise in the event.  If it's
 less than this, it's assumed to be random noise.
@@ -81,7 +81,7 @@ into the peak so that we have a "side-band" visible in the hit.  This
 should be very small (e.g. zero) in busy events since it will add
 confusion between hits.
 
-< clusterCalib.peakArea.extra = 10 >
+< clusterCalib.peakArea.extra = 25 >
 
 Set the amount of time domain smoothing to be applied to the input signal
 before applying the deconvolution.  The value controls the number of
@@ -103,7 +103,7 @@ filter.  This should have a value "near" to one.
 < clusterCalib.deconvolution.noisePower = 1.0 >
 
 Set the minimum RMS used to apply the cuts for a channel.  If this value is
-negative then the absolute value is used direction instead of calculating
+negative then the absolute value is used directly instead of calculating
 the rms for the channel.  This is calculated in terms of calibrated charge.
 
 < clusterCalib.deconvolution.minimumSigma = 10 >
