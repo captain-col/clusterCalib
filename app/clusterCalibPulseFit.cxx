@@ -60,7 +60,8 @@ double PulseShape(double* x, double* par) {
 
 int getStatus(std::vector<int> status_vector) {
   int status = 0;
-  for (auto s:status_vector) {
+  for (unsigned int i=0; i<status_vector.size(); i++) {
+    int s = status_vector[i];
     status += s;
   }
   return status;
@@ -68,7 +69,8 @@ int getStatus(std::vector<int> status_vector) {
 
 float getAvg(std::vector<double> parameter_vector) {
   double parAvg = 0.0;
-  for (auto p:parameter_vector) {
+  for (unsigned int i=0; i<parameter_vector.size();i++) {
+    double p = parameter_vector[i];
     parAvg += p;
   }
   return parAvg/parameter_vector.size();
@@ -76,7 +78,8 @@ float getAvg(std::vector<double> parameter_vector) {
 
 float getRMS(std::vector<double> parameter_vector, double mean) {
   double parRMS = 0.0;
-  for (auto p:parameter_vector) {
+  for (unsigned int i=0; i<parameter_vector.size();i++) {
+    double p = parameter_vector[i];
     parRMS += ((p - mean)*(p - mean));
   }
   return sqrt(parRMS/parameter_vector.size());
