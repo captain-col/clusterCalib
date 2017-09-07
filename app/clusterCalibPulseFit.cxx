@@ -60,11 +60,16 @@ double PulseShape(double* x, double* par) {
 
 int getStatus(std::vector<int> status_vector) {
   int status = 0;
+  int statusBitmask = 0;
   for (unsigned int i=0; i<status_vector.size(); i++) {
     int s = status_vector[i];
-    status += s;
+    status += (s!=0);
+    statusBitmask |= s;
   }
-  return status;
+  if (status/status_vector.size() > 0.5)
+    return statusBitmask;
+  else
+    return 0;
 }
 
 float getAvg(std::vector<double> parameter_vector) {
@@ -263,8 +268,22 @@ public:
       if (peakTime < 700*unit::ns) {
 	status |= CP::TTPC_Channel_Calib_Table::kBadPeak;
       }
-      
 
+
+      float goodnessOfFit = 0.0;
+
+      for (int i=1; i < chanProfile->GetXaxis()->GetNbins(); i++) {
+	float xWire = chanProfile->GetXaxis()->GetBinCenter(i);
+	if (chanProfile->GetBinContent(i) != 0) {
+	  //std::cout<<xWire<< "," << float(chanProfile->GetBinContent(i))<< "," << pulseShape->Eval(xWire) <<std::endl;
+	  goodnessOfFit += fabs((float(chanProfile->GetBinContent(i)) - pulseShape->Eval(xWire)));
+	}
+      }
+      
+      if (goodnessOfFit > 400) {
+	status |= CP::TTPC_Channel_Calib_Table::kBadFit;
+      }
+      
       CP::TTPCChannelId TPCchanId(chanId);
       
       // std::cout << TPCchanId.GetCrate()
@@ -326,7 +345,7 @@ private:
 
   // The digitizer slope
   double fDigitizerSlope;
-    
+
   std::map<CP::TChannelId,std::vector<int>> fChanStatus;
   std::map<CP::TChannelId,std::vector<double>> fChanPar0;
   std::map<CP::TChannelId,std::vector<double>> fChanGainValue;
