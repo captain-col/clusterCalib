@@ -157,4 +157,7 @@ threshold in ADC counts to be considered active.
 < clusterCalib.filter.requiredSignificance = 5.0 >
 < clusterCalib.filter.minimumSignal = 30 >
 
+Threshold to decide if the fit of a calibration pulse was good based on
+a simple cumulative difference between the fitted function and the data.
 
+< clusterCalib.calibrationConstants.goodnessOfFitCut = 400 >

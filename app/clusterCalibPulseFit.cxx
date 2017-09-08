@@ -14,6 +14,7 @@
 
 #include <TChannelInfo.hxx>
 #include <TTPC_Channel_Calib_Table.hxx>
+#include <TRuntimeParameters.hxx>
 
 #include <TF1.h>
 #include <TPad.h>
@@ -279,8 +280,11 @@ public:
 	  goodnessOfFit += fabs((float(chanProfile->GetBinContent(i)) - pulseShape->Eval(xWire)));
 	}
       }
+
+      double goodnessOfFitCut
+        = CP::TRuntimeParameters::Get().GetParameterD("clusterCalib.calibrationConstants.goodnessOfFitCut");
       
-      if (goodnessOfFit > 400) {
+      if (goodnessOfFit > goodnessOfFitCut) {
 	status |= CP::TTPC_Channel_Calib_Table::kBadFit;
       }
       
