@@ -48,6 +48,9 @@ macro_append clusterCalib-fft_dependencies " clusterCalib "
 application clusterCalib-hits ../app/clusterCalibHits.cxx
 macro_append clusterCalib-hits_dependencies " clusterCalib " 
 
+application clusterCalib-cross ../app/clusterCalibCross.cxx
+macro_append clusterCalib-cross_dependencies " clusterCalib " 
+
 application clusterCalib-pulse ../app/clusterCalibPulse.cxx
 macro_append clusterCalib-pulse_dependencies " clusterCalib " 
 
