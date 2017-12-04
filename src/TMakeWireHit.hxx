@@ -22,7 +22,11 @@ public:
     ~TMakeWireHit();
     
     /// Build a hit out of the digit samples between beginIndex and endIndex
-    /// (inclusive).  The digit step size is provided as an input.
+    /// (inclusive).  The digit step size is provided as an input since it's
+    /// hard to infer in this bit of code.  The final optional parameter
+    /// (extraSamples) controls how many extra samples past the end of the
+    /// peak will be saved.  This will always save samples within one
+    /// full-width of the ends of the peak.
     CP::THandle<CP::THit> 
     operator ()(const CP::TCalibPulseDigit& digit, double digitStep, 
                 std::size_t beginIndex, std::size_t endIndex,

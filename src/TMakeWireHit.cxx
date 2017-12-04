@@ -135,8 +135,7 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit, double step,
     for (std::size_t i = beginIndex; i<=endIndex; ++i) {
         sampleCharge[i-beginIndex] = digit.GetSample(i);
     }
-    if (extraSamples > 0) extraSamples += sampleCharge.size();
-    
+
     // Find the lower and upper bound time for the pulse.
     double startPulse = beginIndex*step + digit.GetFirstSample();
     double stopPulse = (sampleCharge.size()-1)*step + startPulse;
@@ -378,11 +377,18 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit, double step,
     hit.SetTimeLowerBound(startPulse);
     hit.SetTimeUpperBound(stopPulse);
 
+    // Find the full width of the peak.  A region equal to one peak full width
+    // is added as a side band to the peak shape.  If the full width is less
+    // than 4 (i.e. twice the typical pulse rise time), then force it to be
+    // four.
+    int fullWidth = endIndex - beginIndex;
+    if (fullWidth<4) fullWidth = 4;
+
     // Find the start and stop of the samples to be added to the hit.  The
     // stopIndex is one past the end of the samples.
-    int startIndex = beginIndex - extraSamples;
+    int startIndex = beginIndex  - fullWidth - extraSamples;
     if (startIndex<0) startIndex = 0;
-    std::size_t stopIndex = endIndex+extraSamples+1;
+    std::size_t stopIndex = endIndex + fullWidth + extraSamples + 1;
     if (stopIndex > digit.GetSampleCount()) stopIndex = digit.GetSampleCount();
         
     // Find the lower and upper bound time for the pulse.
