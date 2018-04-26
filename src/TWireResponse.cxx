@@ -5,7 +5,6 @@
 #include <TEventContext.hxx>
 #include <THandle.hxx>
 #include <TRealDatum.hxx>
-#include <TMCChannelId.hxx>
 #include <TChannelId.hxx>
 #include <TChannelCalib.hxx>
 #include <EClusterCalib.hxx>

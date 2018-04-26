@@ -28,7 +28,6 @@
 // The next two includes are for debugging against MC input.  The are needed
 // to fill some diagnostic histograms.
 #include <TPulseMCDigit.hxx>
-#include <TMCChannelId.hxx>
 
 CP::TClusterCalib::TClusterCalib() {
 

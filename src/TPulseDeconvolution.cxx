@@ -9,7 +9,6 @@
 #include <TEvent.hxx>
 #include <TEventFolder.hxx>
 #include <TRuntimeParameters.hxx>
-#include <TMCChannelId.hxx>
 
 #include <TVirtualFFT.h>
 #include <TH1F.h>

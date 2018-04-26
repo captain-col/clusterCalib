@@ -7,7 +7,6 @@
 #include <TCalibPulseDigit.hxx>
 #include <TPulseDigit.hxx>
 #include <TChannelId.hxx>
-#include <TMCChannelId.hxx>
 #include <TEventFolder.hxx>
 #include <TRealDatum.hxx>
 #include <HEPUnits.hxx>
