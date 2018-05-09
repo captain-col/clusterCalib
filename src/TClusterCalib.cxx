@@ -240,6 +240,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
     // calculation.
     std::vector<double> pedestals(driftCalib->size()*pulseSamples);
     std::vector<double> weights(driftCalib->size());
+    std::vector<double> wires(driftCalib->size());
     int correlatedWires = 0;
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
         if (sigmas[d1]<1.0) continue;
@@ -264,6 +265,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
                 pedestals[d1*pulseSamples+i] += w*v;
             }
             weights[d1] += std::abs(w);
+            wires[d1] += 1.0;
         } 
         if (weights[d1] > 0.0) ++correlatedWires;
     }
@@ -273,9 +275,19 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
         const CP::TCalibPulseDigit* calib
             = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d1]);
+        // Strongly deweight pedestals for wires that have few correlated
+        // wires.
+        double weight = (wires[d1]-100.0)/10.0;
+        if (weight < -10.0) weight = 0.0;
+        else if (weight > 10.0) weight = 1.0;
+        else weight = 1.0-1.0/(1.0 + std::exp(weight));
+        std::cout << wires[d1] << " " << weight << " " << weights[d1] << std::endl;
         for (std::size_t i = 0; i< calib->GetSampleCount(); ++i) {
-            if (weights[d1] < 0.1) pedestals[d1*pulseSamples+i] = 0.0;
-            else pedestals[d1*pulseSamples+i] /= weights[d1];
+            if (weights[d1] < 1.0) {
+                pedestals[d1*pulseSamples+i] = 0.0;
+                continue;
+            }
+            pedestals[d1*pulseSamples+i] *= weight/weights[d1];
         }
     }
 
@@ -303,9 +315,16 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
             = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
         std::unique_ptr<CP::TCalibPulseDigit> correl(
             new CP::TCalibPulseDigit(*calib));
+        // Remove the correlated pedestal from the channel, but only for the
+        // induction planes.  The collection plane is just copied.
         for (std::size_t i = 0; i< calib->GetSampleCount(); ++i) {
             double v = calib->GetSample(i);
             double p = pedestals[d1*pulseSamples+i];
+            CP::TGeometryId pulseGeom
+                = CP::TChannelInfo::Get().GetGeometry(calib->GetChannelId());
+            if (CP::GeomId::Captain::IsXWire(pulseGeom)) {
+                p = 0.0;
+            }
             correl->SetSample(i,v-p);
         }
         driftCorrel->push_back(correl.release());
