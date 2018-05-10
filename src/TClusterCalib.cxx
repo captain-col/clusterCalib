@@ -281,7 +281,6 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
         if (weight < -10.0) weight = 0.0;
         else if (weight > 10.0) weight = 1.0;
         else weight = 1.0-1.0/(1.0 + std::exp(weight));
-        std::cout << wires[d1] << " " << weight << " " << weights[d1] << std::endl;
         for (std::size_t i = 0; i< calib->GetSampleCount(); ++i) {
             if (weights[d1] < 1.0) {
                 pedestals[d1*pulseSamples+i] = 0.0;

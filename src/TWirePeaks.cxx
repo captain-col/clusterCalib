@@ -24,8 +24,11 @@
 
 CP::TWirePeaks::TWirePeaks(bool correctEfficiency) {
     fCorrectCollectionEfficiency = correctEfficiency;
-    fMaxPeaks = 50;
-    
+
+    fMaxPeaks
+        = CP::TRuntimeParameters::Get().GetParameterI(
+            "clusterCalib.peakSearch.maxPeaks");
+
     fPeakMaximumCol
         = CP::TRuntimeParameters::Get().GetParameterD(
             "clusterCalib.peakSearch.charge.collection");
@@ -282,9 +285,10 @@ double CP::TWirePeaks::operator() (CP::THitSelection& hits,
             fWork[j] = 1.0;
         }
         peaks.push_back(extent);
+
         // Stop if we are getting to many peaks.  The peaks are built in order
-        // of height, so this tends to keep the biggest hits.  This only cuts
-        // hits on really noisy wires.
+        // of height, so this tends to keep the biggest hits.  This should
+        // only cut hits on really noisy wires.
         if (fMaxPeaks > 0 && (std::size_t) fMaxPeaks <= peaks.size()) {
             CaptError("Found more than " << fMaxPeaks
                       << " hits for channel "
