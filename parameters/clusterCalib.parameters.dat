@@ -21,18 +21,23 @@ peak.  The area is the total estimated area of the peak.  The noise is the
 number of RMS sigma above the random noise before peak sample is taken as
 signal.
 
+Protection against having way to many peaks.  This is the most hits that
+can be found on any single wire.  It should be large...
+
+< clusterCalib.peakSearch.maxPeaks = 300 >
+
 The minimum peak charge value of a peak candidate.  The units are in
 collected electrons
 
-< clusterCalib.peakSearch.charge.collection = 500 electrons >
-< clusterCalib.peakSearch.charge.induction = 500 electrons >
+< clusterCalib.peakSearch.charge.collection = 300 electrons >
+< clusterCalib.peakSearch.charge.induction = 300 electrons >
 
 The minimum area of a peak candidate.  The expectation is that a MIP will
 create approximately 6000 thermal electrons per mm.  The units are in
 collected electrons.
 
-< clusterCalib.peakSearch.area.collection = 3000 electrons >
-< clusterCalib.peakSearch.area.induction = 3000 electrons >
+< clusterCalib.peakSearch.area.collection = 1000 electrons >
+< clusterCalib.peakSearch.area.induction = 1000 electrons >
 
 The FWHM of the narrowest real peak.  Peaks candidates that are narrower
 than this are rejected.
@@ -161,3 +166,4 @@ Threshold to decide if the fit of a calibration pulse was good based on
 a simple cumulative difference between the fitted function and the data.
 
 < clusterCalib.calibrationConstants.goodnessOfFitCut = 400 >
+
