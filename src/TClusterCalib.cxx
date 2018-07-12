@@ -407,9 +407,11 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::CalibrateChannels(
         }
 
         CP::TChannelCalib channelCalib;
+#ifdef SKIP_BAD_CHANNELS
         if (!channelCalib.IsGoodChannel(pulse->GetChannelId())) {
             continue;
         }
+#endif
         
         CP::TGeometryId pulseGeom
             = CP::TChannelInfo::Get().GetGeometry(pulse->GetChannelId());

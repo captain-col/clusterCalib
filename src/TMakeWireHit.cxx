@@ -82,8 +82,10 @@ namespace {
             Xi += 1.0;
             ++begin;
         } while (true);
-        // Find the general solution...  a is calculated, bt not used.
+        // Find the general solution...  a can be calculated, but not used.
+#ifdef CALCULATE_CONSTANT_FACTOR
         double a = -std::pow(sX4i*std::pow(sXi,2)-2*sX2i*sX3i*sXi-m*sX2i*sX4i+m*std::pow(sX3i,2)+std::pow(sX2i,3),-1)*((sX2i*sX4i-std::pow(sX3i,2))*sYi+sXi*(sX2iYi*sX3i-sX4i*sXiYi)+sX2i*sX3i*sXiYi-std::pow(sX2i,2)*sX2iYi);
+#endif
         double b = std::pow(sX4i*std::pow(sXi,2)-2*sX2i*sX3i*sXi-m*sX2i*sX4i+m*std::pow(sX3i,2)+std::pow(sX2i,3),-1)*((sX4i*sXi-sX2i*sX3i)*sYi+m*(sX2iYi*sX3i-sX4i*sXiYi)+std::pow(sX2i,2)*sXiYi-sX2i*sX2iYi*sXi);
         double c = -std::pow(sX4i*std::pow(sXi,2)-2*sX2i*sX3i*sXi-m*sX2i*sX4i+m*std::pow(sX3i,2)+std::pow(sX2i,3),-1)*((sX3i*sXi-std::pow(sX2i,2))*sYi+sX2i*sXi*sXiYi-m*sX3i*sXiYi-sX2iYi*std::pow(sXi,2)+m*sX2i*sX2iYi);
         // Peak position...
@@ -111,15 +113,6 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit, double step,
     CP::TGeometryId geomId
         = CP::TChannelInfo::Get().GetGeometry(digit.GetChannelId());
 
-#ifdef YES_I_REALLY_WANT_TO_REVERSE_THE_X_WIRES
-    #warning YES THE X WIRES REALLY ARE ARE BEING REVERSED
-    if (CP::GeomId::Captain::IsXWire(geomId)) {
-        int plane = CP::GeomId::Captain::GetWirePlane();
-        int wire = CP::GeomId::Captain::GetWireNumber();
-        geomId = CP::GeomId::Captain::Wire(plane,331-wire);
-    }
-#endif
-    
     if (!geomId.IsValid()) {
         CaptWarn("Making hits for an invalid geometry id");
     }
@@ -376,6 +369,14 @@ CP::TMakeWireHit::operator()(const CP::TCalibPulseDigit& digit, double step,
     hit.SetTimeRMS(timeRMS);
     hit.SetTimeLowerBound(startPulse);
     hit.SetTimeUpperBound(stopPulse);
+    if (!calib.IsGoodChannel(digit.GetChannelId())) {
+        hit.SetTimeValidity(false);
+        hit.SetChargeValidity(false);
+    }
+    if (!calib.IsGoodWire(geomId)) {
+        hit.SetTimeValidity(false);
+        hit.SetChargeValidity(false);
+    }
 
     // Find the full width of the peak.  A region equal to one peak full width
     // is added as a side band to the peak shape.  If the full width is less
