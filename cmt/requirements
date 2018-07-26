@@ -17,6 +17,7 @@ use testBase
 use captainPolicy 
 use captTrans
 use ROOT * LCG_Interfaces
+use fftw * LCG_Interfaces
 
 # Build the documentation.
 document doxygen doxygen -group=documentation *.cxx *.hxx ../doc/*.dox
