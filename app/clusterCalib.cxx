@@ -14,6 +14,7 @@ public:
         fSaveCalib = false;
         fSaveDecorrel = false;
         fSaveDeconv = false;
+        fStripDigits = false;
         fCalibrateAllChannels = false;
         fApplyEfficiencyCalibration = true;
         fRemoveCorrelatedPedestal = true;
@@ -34,6 +35,9 @@ public:
                   << "        s: Override significance above baseline"
                   << std::endl
                   << "        H: Override maximum allowed number of hits"
+                  << std::endl;
+        std::cout << "   -O strip-digits    "
+                  << "Strip the digits from the output file."
                   << std::endl;
         std::cout << "   -O save-deconv     "
                   << "Save the calibrated (after deconvolution) pulses"
@@ -60,6 +64,7 @@ public:
         if (option == "save-calib") fSaveCalib = true;
         else if (option == "save-decorrel") fSaveDecorrel = true;
         else if (option == "save-deconv") fSaveDeconv = true;
+        else if (option == "strip-digits") fStripDigits = true;
         else if (option.find("no-corr") == 0) {
             CaptLog("Do not remove the correlated pedestal");
             fRemoveCorrelatedPedestal = false;
@@ -129,6 +134,17 @@ public:
         // Run the calibration on the event.
         (*fClusterCalib)(event);
 
+        if (fStripDigits) {
+            CP::THandle<CP::TDataVector> digits
+                = event.Get<CP::TDataVector>("~/digits");
+            if (digits) {
+                CP::TDataVector::iterator d = digits->begin();
+                while (d != digits->end()) {
+                    d = digits->erase(d);
+                }
+            }
+        }
+
         // Save everything that gets to here.
         return true;
     }
@@ -140,6 +156,7 @@ private:
     bool fSaveDeconv;
     bool fSaveDecorrel;
     bool fSaveCalib;
+    bool fStripDigits;
     bool fCalibrateAllChannels;
     bool fApplyEfficiencyCalibration;
     bool fRemoveCorrelatedPedestal;
