@@ -188,7 +188,10 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
     
     // Find the RMS for each wire.  The pedestal is already removed so the
     // expected (mean) value is zero.
-    std::vector<double> sigmas(driftCalib->size());
+    static std::vector<double> sigmas;
+    if (sigmas.size() != driftCalib->size()) {
+        sigmas.resize(driftCalib->size());
+    }
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
         CP::TCalibPulseDigit* calib1
             = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
@@ -203,7 +206,10 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
 
     // Fill a "2d" array of wire to wire correlations.  The array indexing is
     // done by hand so I can use a vector. 
-    std::vector<double> correlations(driftCalib->size()*driftCalib->size());
+    static std::vector<double> correlations;
+    if (correlations.size() != (driftCalib->size()*driftCalib->size())) {
+        correlations.resize(driftCalib->size()*driftCalib->size());
+    }
     std::size_t pulseSamples = 0;
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
         if (sigmas[d1]<1.0) continue;
@@ -238,9 +244,18 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
     // wires.  This needs to be calculated separately so when the new pedestal
     // subtraction is done, the subtraction does affect the pedestal
     // calculation.
-    std::vector<double> pedestals(driftCalib->size()*pulseSamples);
-    std::vector<double> weights(driftCalib->size());
-    std::vector<double> wires(driftCalib->size());
+    static std::vector<double> pedestals;
+    if (pedestals.size() != driftCalib->size()*pulseSamples) {
+        pedestals.resize(driftCalib->size()*pulseSamples);
+    }
+    static std::vector<double> weights;
+    if (weights.size() != driftCalib->size()) {
+        weights.resize(driftCalib->size());
+    }
+    static std::vector<double> wires;
+    if (wires.size() != driftCalib->size()) {
+        wires.resize(driftCalib->size());
+    }
     int correlatedWires = 0;
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
         if (sigmas[d1]<1.0) continue;

@@ -264,15 +264,19 @@ CP::TCalibPulseDigit* CP::TPulseDeconvolution::operator()
 
     // Calculate the uncertainty in the sum (RMS) as a function of number of
     // samples in sum.
-    std::vector<double> integral;
-    integral.resize(deconv->GetSampleCount());
+    static std::vector<double> integral;
+    if (integral.size() != deconv->GetSampleCount()) {
+        integral.resize(deconv->GetSampleCount());
+    }
     double sum = 0.0;
     for (std::size_t i = 0; i<deconv->GetSampleCount(); ++i) {
         sum += deconv->GetSample(i);
         integral[i] = sum;
     }
-    std::vector<double> diff;
-    diff.resize(deconv->GetSampleCount());
+    static std::vector<double> diff;
+    if (diff.size() != deconv->GetSampleCount()) {
+        diff.resize(deconv->GetSampleCount());
+    }
     bool bipolar = channelCalib.IsBipolarSignal(deconv->GetChannelId());
     for (std::size_t step=1; step<kMaxSampleSigmas; ++step) {
         for (std::size_t i=0; i<diff.size()-step; ++i) {
@@ -312,8 +316,10 @@ void CP::TPulseDeconvolution::RemoveBaseline(
     if (!channelCalib.IsBipolarSignal(digit.GetChannelId())) return;
 #endif
 
-    std::vector<double> diff;
-    diff.resize(digit.GetSampleCount());
+    static std::vector<double> diff;
+    if (diff.size() != digit.GetSampleCount()) {
+        diff.resize(digit.GetSampleCount());
+    }
 
 #ifdef FILL_HISTOGRAM
 #undef FILL_HISTOGRAM
@@ -399,13 +405,17 @@ void CP::TPulseDeconvolution::RemoveBaseline(
 #endif
         
     // Estimate the baseline for regions where there isn't much change.
-    std::vector<double> baseline;
-    baseline.resize(digit.GetSampleCount());
+    static std::vector<double> baseline;
+    if (baseline.size() != digit.GetSampleCount()) {
+        baseline.resize(digit.GetSampleCount());
+    }
     const double unfilledBaseline = std::numeric_limits<double>::quiet_NaN();
     std::fill(baseline.begin(), baseline.end(), unfilledBaseline);
     
-    std::vector<double> drift;
-    drift.resize(digit.GetSampleCount());
+    static std::vector<double> drift;
+    if (drift.size() != digit.GetSampleCount()) {
+        drift.resize(digit.GetSampleCount());
+    }
 
     // Fill the drifts for the samples.
     for (std::size_t i=0; i<drift.size(); ++i) {
