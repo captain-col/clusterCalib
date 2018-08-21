@@ -62,14 +62,14 @@ bool CP::TWireResponse::Calculate() {
     // Fill the response function.  This explicitly normalizes.
     switch (fWireClass) {
     case kDeltaFunction:
-        CaptLog("Calculate delta function wire response");
+        CaptInfo("Calculate delta function wire response");
         // Use a delta function in time for the wire response.  This is an
         // appropriate approximation for the collection wires (i.e. the X
         // plane).
         fResponse[0] = 1;
         break;
     case kTimeDerivative:
-        CaptLog("Calculate differential function wire response");
+        CaptInfo("Calculate differential function wire response");
         // Use the derivative of the charge w.r.t. time for the wire response.
         // This is appropriate for the induction wires (i.e. the U and V
         // planes).

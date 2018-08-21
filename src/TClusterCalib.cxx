@@ -165,7 +165,7 @@ bool CP::TClusterCalib::operator()(CP::TEvent& event) {
         const CP::TCalibPulseDigit* calib
             = dynamic_cast<const CP::TCalibPulseDigit*>((*driftCalib)[d]);
         if (d%100 == 0) {
-            CaptLog("Make Hits " << calib->GetChannelId().AsString());
+            CaptInfo("Make Hits " << calib->GetChannelId().AsString());
         }
 
         // Find any peaks in the deconvoluted pulse.
@@ -186,6 +186,8 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
     CP::TEvent& event, CP::THandle<CP::TDigitContainer> driftCalib) {
     if (!fRemoveCorrelatedPedestal) return driftCalib;
     
+    CaptInfo("Remove Correlations " << event.GetContext());
+
     // Find the RMS for each wire.  The pedestal is already removed so the
     // expected (mean) value is zero.
     static std::vector<double> sigmas;
@@ -216,7 +218,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
         CP::TCalibPulseDigit* calib1
             = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
         if (d1%100 == 0) {
-            CaptLog("Find Correlations " << calib1->GetChannelId().AsString());
+            CaptInfo("Find Correlations " << calib1->GetChannelId().AsString());
         }
         pulseSamples = std::max(pulseSamples,calib1->GetSampleCount());
         for (std::size_t d2 = d1+1; d2 < driftCalib->size(); ++d2) {
@@ -262,7 +264,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
         CP::TCalibPulseDigit* calib1
             = dynamic_cast<CP::TCalibPulseDigit*>((*driftCalib)[d1]);
         if (d1%100 == 0) {
-            CaptLog("Estimate correlated pedestal "
+            CaptInfo("Estimate correlated pedestal "
                     << calib1->GetChannelId().AsString());
         }
         for (std::size_t d2 = 0; d2 < driftCalib->size(); ++d2) {
@@ -284,7 +286,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
         } 
         if (weights[d1] > 0.0) ++correlatedWires;
     }
-    CaptLog("Wires with strong correlations: " << correlatedWires);
+    CaptInfo("Wires with strong correlations: " << correlatedWires);
 
     // Find the averaged pedestals for each wire.
     for (std::size_t d1 = 0; d1 < driftCalib->size(); ++d1) {
@@ -350,6 +352,8 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::RemoveCorrelatedPedestal(
 CP::THandle<CP::TDigitContainer> CP::TClusterCalib::DeconvolveSignals(
     CP::TEvent& event, CP::THandle<CP::TDigitContainer> driftCalib) {
 
+    CaptInfo("Deconvolve Event " << event.GetContext());
+
     // Create a container for the deconvoluted TCalibPulseDigits and check to
     // see if the deconvoluted digits are going to be saved.  If they are,
     // then create a permanent container to hold them.  Otherwise, the
@@ -377,7 +381,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::DeconvolveSignals(
         std::unique_ptr<CP::TCalibPulseDigit> deconv((*fDeconvolution)(*calib));
         if (!deconv.get()) continue;
         if (d%100 == 0) {
-            CaptLog("Deconvolve " << calib->GetChannelId().AsString());
+            CaptInfo("Deconvolve " << calib->GetChannelId().AsString());
         }
 
         // Add the deconvoluted digits to the event (remember, they might be
@@ -391,6 +395,8 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::DeconvolveSignals(
 CP::THandle<CP::TDigitContainer> CP::TClusterCalib::CalibrateChannels(
     CP::TEvent& event,
     CP::THandle<CP::TDigitContainer> drift) {
+    
+    CaptInfo("Calibrate Event " << event.GetContext());
     
     // Create a handle for the current calibrated digits being worked on.
     // This will keep track of the current stage of the calibration as it
@@ -437,7 +443,7 @@ CP::THandle<CP::TDigitContainer> CP::TClusterCalib::CalibrateChannels(
         }
 
         if (d%100 == 0) {
-            CaptLog("Calibrate " << pulse->GetChannelId().AsString()
+            CaptInfo("Calibrate " << pulse->GetChannelId().AsString()
                      << " " << std::setw(40) << pulseGeom << std::setw(0));
         }
 
