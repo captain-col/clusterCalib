@@ -64,9 +64,12 @@ public:
         if (option == "save-calib") fSaveCalib = true;
         else if (option == "save-decorrel") fSaveDecorrel = true;
         else if (option == "save-deconv") fSaveDeconv = true;
-        else if (option == "strip-digits") fStripDigits = true;
+        else if (option.find("strip") == 0 ) {
+            CaptLog("OPTION: Strip the digits (reduces output file size)");
+            fStripDigits = true;
+        }
         else if (option.find("no-corr") == 0) {
-            CaptLog("Do not remove the correlated pedestal");
+            CaptLog("OPTION: Do not remove the correlated pedestal");
             fRemoveCorrelatedPedestal = false;
         }
         else if (option.find("corr") == 0) {

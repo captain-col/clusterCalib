@@ -3,6 +3,7 @@
 
 #include <TEvent.hxx>
 #include <TChannelId.hxx>
+#include <TCaptLog.hxx>
 
 #include <memory>
 
@@ -23,19 +24,19 @@ public:
 
     /// Set a flag to save the calibrated pulses.
     void SaveCalibratedPulses(bool value = true) {
-        std::cout << "Save Calibrated Pulses " << value << std::endl;
+        CaptLog("Save Calibrated Pulses set to " << value);
         fSaveCalibratedPulses = value;
     }
 
     /// Set a flag to save the decorrelated pulses.
     void SaveDecorrelatedPulses(bool value = true) {
-        std::cout << "Save Decorrelated Pulses " << value << std::endl;
+        CaptLog("Save Decorrelated Pulses set to " << value);
         fSaveDecorrelatedPulses = value;
     }
 
     /// Set a flag to save the deconvolved pulses.
     void SaveDeconvolvedPulses(bool value = true) {
-        std::cout << "Save Deconvolved Pulses " << value << std::endl;
+        CaptLog("Save Deconvolved Pulses set to " << value);
         fSaveDeconvolvedPulses = value;
     }
 
