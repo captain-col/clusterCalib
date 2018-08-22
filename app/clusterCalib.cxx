@@ -140,6 +140,8 @@ public:
             if (digits) {
                 CP::TDataVector::iterator d = digits->begin();
                 while (d != digits->end()) {
+                    delete (*d);
+                    *d = NULL;
                     d = digits->erase(d);
                 }
             }
